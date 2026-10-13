@@ -18,6 +18,8 @@ node scripts/import-airtable.mjs
 
 This reads Airtable, writes no Supabase data, and creates `work/airtable-import-audit.json`. Records are classified as `ready_to_import`, `intentionally_excluded`, or `flagged_for_review`.
 
+Before any Supabase client is created, the importer rejects an empty or malformed source payload and stops on missing or duplicate Airtable record IDs. For supported records, a missing title is retained as blank and classified as `flagged_for_review`; it is never replaced with a synthetic title.
+
 ## Execute the import
 
 After reviewing the audit file, set the same Supabase values used by the app in the shell, then run:
