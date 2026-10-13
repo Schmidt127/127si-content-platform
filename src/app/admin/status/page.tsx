@@ -8,6 +8,7 @@ type HealthResponse = { checks?: Record<string, HealthCheck> };
 
 const checks = [
   ["database", "Published content access"],
+  ["destinations", "Destination releases"],
   ["storage", "Media storage"],
   ["configuration", "Runtime configuration"],
 ] as const;

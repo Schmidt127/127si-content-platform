@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseAdmin, getSupabasePublic } from "@/lib/supabase";
 import { databaseFailure, getBearerToken, readJsonRecord } from "@/lib/api-contract";
+import { isOpenRelease, releaseState, visibleDestinations, type Destination, type ReleaseWindow } from "@/lib/content-releases";
 
 const contentSchema = z.object({
   content_type: z.enum(["tutorial", "fbc_book", "shout_out"]),
@@ -42,10 +43,24 @@ export async function GET(request: Request) {
   const authClient = publicClient.auth as unknown as { getUser: (jwt: string) => Promise<{ data: { user: { id: string } | null }; error: Error | null }> };
   const { data: auth, error: authError } = await authClient.getUser(token);
   if (authError || !auth.user) return NextResponse.json({ error: "Invalid authentication" }, { status: 401 });
-  const { data, error } = await adminClient.from("content_items").select("id, content_type, title, status, visibility, created_at, published_at").order("created_at", { ascending: false });
-  if (error) {
-    const failure = databaseFailure(error, "Unable to load content records");
+  const [{ data, error }, { data: published, error: publishedError }] = await Promise.all([
+    adminClient.from("content_items").select("id, content_type, title, status, visibility, created_at, published_at, content_releases(destination_key, status, starts_at, ends_at)").order("created_at", { ascending: false }),
+    adminClient.from("published_content").select("id"),
+  ]);
+  if (error || publishedError) {
+    const failure = databaseFailure(error ?? publishedError, "Unable to load content records");
     return NextResponse.json({ error: failure.error }, { status: failure.status });
   }
-  return NextResponse.json({ data });
+  const now = new Date();
+  const libraryPublished = new Set((published ?? []).map((row) => row.id as string));
+  const records = (data ?? []).map(({ content_releases, ...item }) => {
+    const releases = (content_releases ?? []) as Array<ReleaseWindow & { destination_key: Destination }>;
+    return {
+      ...item,
+      library_version_published: libraryPublished.has(item.id),
+      visible_on: visibleDestinations(libraryPublished.has(item.id), releases, now),
+      open_releases: releases.filter(isOpenRelease).map((release) => ({ destination_key: release.destination_key, state: releaseState(release, now) })),
+    };
+  });
+  return NextResponse.json({ data: records });
 }
