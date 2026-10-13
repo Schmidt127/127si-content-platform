@@ -4,7 +4,7 @@ The repository's database contract is the SQL in `supabase/migrations/`. Supabas
 
 ## Migration order
 
-Apply migrations in filename order. The application currently expects all five files to be present in the target project.
+Apply migrations in filename order. The application currently expects all six files to be present in the target project.
 
 | Migration | Effect |
 | --- | --- |
@@ -13,6 +13,7 @@ Apply migrations in filename order. The application currently expects all five f
 | `0003_media_storage.sql` | Creates or confirms the public `content-media` bucket, adds upload ownership, and defines published-media read policies. |
 | `0004_published_snapshot_media_links.sql` | Makes the published view read content fields from the latest published revision snapshot and adds relative media URLs. |
 | `0005_asset_library_metadata.sql` | Adds reusable-library metadata, asset kinds, tags, archive state, indexes, and constraints. |
+| `0006_content_releases.sql` | Adds destination releases (`content_releases`), their constraints, indexes, RLS, and the `published_destination_content` view. Creates no release rows. |
 
 The application does not apply migrations automatically. Run and verify them in the target Supabase project as a release prerequisite.
 
@@ -38,9 +39,29 @@ The reusable asset library. It stores the Supabase bucket and path, `asset_kind`
 
 The many-to-many link between content and assets. It stores `role` and `display_order`; the composite primary key prevents the same asset from being linked to the same content item twice.
 
+### `content_releases`
+
+One row per destination release of a canonical `content_items` record. See [content-releases.md](./content-releases.md) for the behavior.
+
+| Column | Notes |
+| --- | --- |
+| `id` | UUID primary key |
+| `content_item_id` | FK to `content_items(id)`, `on delete restrict` so release history blocks accidental deletion |
+| `destination_key` | `challenge` or `referee` (check constraint) |
+| `status` | `draft`, `published`, `unpublished`, `archived` (check constraint); scheduled and expired are derived from the window |
+| `starts_at`, `ends_at` | Release window; `published` requires `starts_at`; `ends_at` must be after `starts_at`; empty `ends_at` means permanent |
+| `featured`, `display_order` | Public ordering; `display_order >= 0` |
+| `created_by`, `updated_by` | FK to `auth.users`, `on delete set null` |
+| `published_at`, `unpublished_at`, `archived_at` | Release history timestamps |
+| `created_at`, `updated_at` | Row timestamps |
+
+Indexes: a partial unique index `content_releases_one_open_per_destination` on `(content_item_id, destination_key)` where status is `draft` or `published`; a partial public-query index on `(destination_key, featured desc, display_order, starts_at)` where status is `published`; and a history index on `(content_item_id, created_at desc)`.
+
 ## Public read model
 
-`public.published_content` is the read model used by both public API routes. It returns only records whose status is `published` and whose snapshot visibility is `public` or `link_only`. Content fields come from the newest revision with a non-null `published_at`. Media is aggregated from `content_media` and includes a relative `public_url` rooted at `/storage/v1/object/public/content-media/`.
+`public.published_content` is the library read model. It returns only records whose status is `published` and whose snapshot visibility is `public` or `link_only`. Content fields come from the newest revision with a non-null `published_at`. Media is aggregated from `content_media` and includes a relative `public_url` rooted at `/storage/v1/object/public/content-media/`.
+
+`public.published_destination_content` is the read model used by both public API routes. It joins `published_content` to `content_releases` and keeps only active releases (`status = 'published'`, `starts_at <= now()`, `ends_at` null or later than `now()`). It has one row per record and destination, exposing all `published_content` columns plus `release_id`, `destination_key`, `release_featured`, `release_display_order`, `release_starts_at`, `release_ends_at`, and `release_published_at`. The API filters by `destination_key`.
 
 The application expands that relative URL with `NEXT_PUBLIC_SUPABASE_URL` before returning it to consumers. Consumers should use `/api/v1`, not query tables or the view directly.
 
@@ -51,6 +72,8 @@ The application expands that relative URL with `NEXT_PUBLIC_SUPABASE_URL` before
 - The browser client is used for password sign-in and signed Storage uploads.
 - The `content-media` bucket is public for delivery. Do not store unpublished or sensitive media there.
 - RLS policies in the migrations cover published reads. Service-role operations bypass RLS by design.
+- `content_releases` has RLS with a single `select` policy for `anon` and `authenticated` limited to active published releases. It has no write policies, and the migration revokes insert, update, delete, and truncate from those roles, so only the server-side service role can write releases.
+- The existing `content_items` policy still lets the public key read published library records directly, regardless of destination. Consumers must use `/api/v1`; tightening direct table reads is a recommended follow-up (see [current-state.md](./current-state.md#known-limitations)).
 - There is no application-level admin role or allowlist yet: any valid Supabase user token currently passes the admin check.
 
 For setup and credential boundaries, see [supabase.md](./supabase.md). For the public shape, see [api-v1.md](./api-v1.md).

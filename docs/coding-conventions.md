@@ -35,12 +35,25 @@ These conventions describe the patterns already used in the repository. Keep doc
 - Validate content-scoped paths before saving signed-upload metadata.
 - Clean up Storage objects and metadata when a later link/save step fails.
 
+## Destination releases
+
+- Keep one canonical `content_items` record per piece of content. Express placement only through `content_releases`; never copy a record or its media per destination.
+- Use the destination keys `challenge` and `referee` and the labels from `DESTINATION_LABELS` in `src/lib/content-releases.ts`. Adding a destination requires both a migration (the `destination_key` check constraint) and the `DESTINATIONS` constant.
+- Store only `draft`, `published`, `unpublished`, and `archived`. Derive Scheduled and Expired with `releaseState()`; do not persist them.
+- Put release rules in `src/lib/content-releases.ts` (pure planning) and `src/lib/release-service.ts` (orchestration through a `ReleaseStore`). Route handlers should only authorize, parse, and call the service so the rules stay testable without Supabase.
+- Public reads go through the `published_destination_content` view with a required, validated `destination`. Do not filter destinations in application code alone.
+- Close a release (unpublish or archive) rather than deleting it; release rows are history.
+
 ## UI and navigation
 
 - Use the shared `AdminShell` for current admin workspace pages.
 - Keep `/admin/records` as the primary records route; `/admin/content` is retained legacy UI.
 - Keep user-facing labels readable and consistent with the three supported content types.
 - Put consumer API guidance in `/admin/integrations` and operational checks in `/admin/status`.
+
+## Imports
+
+- Inside `src/lib`, modules that the Node test runner imports directly use relative imports with an explicit `.ts` extension (enabled by `allowImportingTsExtensions`), because the test runner does not resolve the `@/` alias.
 
 ## Verification
 

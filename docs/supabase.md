@@ -42,13 +42,34 @@ The public API returns URLs for this bucket. The content creation screen uses a 
 
 ## Database setup
 
-Apply `0001` through `0005` in order, then verify the `published_content` view and `content-media` bucket in the target project. The app's `/api/health` check only confirms configuration, published-view access, and Storage bucket reachability; it does not report migration versions.
+Apply `0001` through `0006` in order, then verify the `published_content` and `published_destination_content` views and the `content-media` bucket in the target project. The app's `/api/health` check confirms configuration, both views, and Storage bucket reachability; it does not report migration versions.
+
+The hosted Content project is `127SI Content Platform` (`oqnnvmxjdersgcguhvsc`). On 2026-10-13 its tables matched migrations `0001`–`0005`, but its Supabase migration history was empty, so those files were applied outside the CLI ledger.
 
 For the exact tables, policies, and view behavior, see [schema.md](./schema.md).
+
+## Destination release migration (0006)
+
+Owner-controlled. Agents must not apply it. It creates a new table and view and changes no existing rows.
+
+1. **Confirm the target.** In the Supabase dashboard, open project `oqnnvmxjdersgcguhvsc` and run `select count(*) from public.content_items;` to confirm it is the Content database.
+2. **Back up.** Take a database backup or confirm point-in-time recovery is available.
+3. **Pre-check.** `select to_regclass('public.content_releases'), to_regclass('public.published_destination_content');` should return two nulls. `select count(*) from public.published_content;` records the current library count (1 on 2026-10-13).
+4. **Apply.** Paste the full contents of `supabase/migrations/0006_content_releases.sql` into the SQL editor and run it once. It is idempotent if re-run.
+5. **Verify.**
+   - `select count(*) from public.content_releases;` returns `0`.
+   - `select count(*) from public.published_destination_content;` returns `0`; nothing is newly public.
+   - `select policyname, cmd from pg_policies where tablename = 'content_releases';` returns one `SELECT` policy.
+   - `select has_table_privilege('anon', 'public.content_releases', 'INSERT');` returns `false`.
+   - `select count(*) from public.published_content;` is unchanged from step 3.
+6. **Record** the apply time and operator in the release notes. Do not create release rows until the owner approves the [assignment report](./destination-assignment-report.md).
+
+Rollback (only after reverting the application deploy, since the new app requires these objects): export release history if needed (`copy (select * from public.content_releases) to stdout with csv header;`), then `drop view if exists public.published_destination_content;` and `drop table if exists public.content_releases;`. These statements touch no content, revision, media, or Storage data. The same steps are in the migration file header.
 
 ## Security boundaries
 
 - Do not use user-editable metadata as an authorization claim; this code currently authorizes by token validity only.
+- Destination releases are written only by admin routes through the service role; the public key can read only active published releases.
 - Keep the public bucket limited to approved public or link-only content.
 - Do not expose the service-role key in browser code or public logs.
 - Treat the service-role client as a server-only dependency and keep it out of client modules.

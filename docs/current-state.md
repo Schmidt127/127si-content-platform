@@ -11,7 +11,9 @@ Supabase is the application backend:
 - Supabase Postgres stores content, revisions, media metadata, and content-to-media links.
 - Supabase Auth provides the admin sign-in session.
 - Supabase Storage provides the `content-media` bucket.
-- The `published_content` Postgres view is the public read model used by the versioned API.
+- The `published_content` Postgres view is the published library version of each canonical record.
+- `content_releases` records where each canonical record is released (`challenge`, `referee`), with schedule, featured, display order, and history.
+- The `published_destination_content` view combines both and is the public read model used by the versioned API. See [content-releases.md](./content-releases.md).
 
 The schema history is in `supabase/migrations/`:
 
@@ -22,6 +24,9 @@ The schema history is in `supabase/migrations/`:
 | `0003_media_storage.sql` | Public `content-media` bucket, upload ownership, and published-media read policies |
 | `0004_published_snapshot_media_links.sql` | Published fields from the latest revision snapshot and public media URLs |
 | `0005_asset_library_metadata.sql` | Reusable asset-library metadata, tags, archive state, indexes, and constraints |
+| `0006_content_releases.sql` | `content_releases`, destination/status/window constraints, one-open-release-per-destination index, RLS, and the `published_destination_content` view. Creates no releases for existing records |
+
+`0006` exists in the repository only. It has not been applied to any hosted project; see the owner procedure in [supabase.md](./supabase.md#destination-release-migration-0006) and the [destination assignment report](./destination-assignment-report.md).
 
 The repository does not contain a migration-status record for the hosted database. Confirm migration state in the target Supabase project before deployment; this audit did not apply migrations or query production data.
 
@@ -54,8 +59,11 @@ The workflow supports:
 2. Draft creation for `tutorial`, `fbc_book`, and `shout_out` records.
 3. Required Shout Out permission confirmation.
 4. Optional media attachment while creating a draft.
-5. Draft editing, publish, and unpublish actions.
-6. Reusable asset upload, search, filtering, and attachment to content records.
+5. Draft editing, plus publishing and unpublishing the library version.
+6. A **Publishing destinations** section on `/admin/:id/edit` to release a record to Challenge, Referee, both, or neither: immediately, on a schedule, permanently or until an end date, with featured and display order, plus per-destination publish, unpublish, archive, and release history.
+7. Reusable asset upload, search, filtering, and attachment to content records.
+
+A record is publicly visible on a destination only when its library version is published **and** it has an active release for that destination. `/admin/records` shows where each record is currently visible and filters by destination.
 
 `/admin/content` remains as a separate, unlinked records screen. It was not removed because an existing bookmark or external link could still depend on it; `/admin/records` is the route linked by the current shell.
 
@@ -75,9 +83,12 @@ See [admin-navigation.md](./admin-navigation.md) for the route map and [operatio
 
 | Route | Access | Purpose |
 | --- | --- | --- |
-| `GET /api/v1/content` | Public | Paginated published content; filters: `type`, `challenge_id`, `page`, `page_size` |
-| `GET /api/v1/content/:id` | Public | One published item or `404` |
-| `GET /api/health` | Public | No-store configuration, published-view, and storage checks; `200` when all pass, otherwise `503` |
+| `GET /api/v1/content` | Public | Paginated content actively released to the required `destination` (`challenge` or `referee`); filters: `type`, `challenge_id`, `page`, `page_size` |
+| `GET /api/v1/content/:id` | Public | One item actively released to the required `destination`, or `404` |
+| `GET /api/health` | Public | No-store configuration, published-view, destination-view, and storage checks; `200` when all pass, otherwise `503` |
+| `GET /api/admin/content/:id/releases` | Supabase bearer token | Release overview, current visibility, and history for one record |
+| `POST /api/admin/content/:id/releases` | Supabase bearer token | Create a draft, immediate, or scheduled release for one destination |
+| `PATCH /api/admin/content/:id/releases/:releaseId` | Supabase bearer token | Edit an open release, or publish, unpublish, or archive it |
 | `POST /api/admin/content` | Supabase bearer token | Create a draft |
 | `GET /api/admin/content` | Supabase bearer token | List content records |
 | `GET /api/admin/content/:id` | Supabase bearer token | Load one admin record |
@@ -89,7 +100,11 @@ See [admin-navigation.md](./admin-navigation.md) for the route map and [operatio
 | `POST /api/admin/assets` | Supabase bearer token | Upload a reusable asset, up to 50 MB |
 | `PUT /api/admin/assets` | Supabase bearer token | Link an asset to a content record |
 
-Published API responses are cacheable for 60 seconds with a 300-second stale-while-revalidate window. Published content fields come from the latest published revision snapshot; media links come from the linked asset records.
+Published API responses are cacheable for 60 seconds with a 300-second stale-while-revalidate window, so a release, unpublish, or expiry can take up to about six minutes to reach consumers through shared caches. Published content fields come from the latest published revision snapshot; media links come from the linked asset records. Each item carries a `release` object for the requested destination. The `destination` parameter is required; see [api-v1.md](./api-v1.md).
+
+## Consumers
+
+Challenge requests `destination=challenge` and Referee requests `destination=referee`, both through `/api/v1` only. Neither connects to the Content Platform database. Both consumers reject any item whose `release.destination` does not match their own key.
 
 ## Deployment files and boundaries
 
@@ -106,6 +121,17 @@ The local `.vercel/project.json` contains a linked project name and IDs, but it 
 Airtable is historical migration input only, not the current application backend. The importer and inventory scripts remain in the repository for an explicitly controlled, optional migration workflow. They are not called by the app, and no import or inventory run was performed during this audit.
 
 See [airtable-import.md](./airtable-import.md) and [migration-inventory.md](./migration-inventory.md) for that historical workflow. Those documents must not be read as evidence that Airtable is a live dependency.
+
+## Known limitations
+
+- Any valid Supabase Auth user passes the admin check. There is no admin role yet.
+- The existing anonymous RLS policy on `content_items` still allows direct Supabase reads of published library versions regardless of destination. The supported consumer path is `/api/v1`; tightening that policy is a recommended follow-up.
+- Saving edits to a published record returns its library version to draft, which hides it on every destination until it is published again. Releases are not changed.
+- Admin state labels (Scheduled, Expired) use the server clock; public visibility uses the database clock. Small clock differences can briefly disagree.
+- Public responses are shared-cacheable for up to about six minutes after a release change.
+- Referee has a typed client but no page or environment variable wired to it yet.
+- The local `.env.local` points at the Challenge Supabase project, not a dedicated Content project. See the [assignment report](./destination-assignment-report.md).
+- Hosted migration history is not recorded; `0006` is unapplied, and existing records have no releases until the owner approves the assignment step.
 
 ## Working-tree boundary
 
