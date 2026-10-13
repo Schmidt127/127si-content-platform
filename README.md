@@ -4,14 +4,17 @@ Central content service for 127SI Tutorials, FBC Book readings, and athlete Shou
 
 ## Status
 
-MVP admin, publishing workflow, media upload path, and public v1 API are implemented.
-Deployment preparation is documented in [docs/deployment.md](docs/deployment.md).
+The MVP admin, publishing workflow, Supabase media paths, health checks, and public v1 API are implemented. The repository is prepared for deployment but this repository state does not prove that hosted Supabase migrations or a Vercel deployment have been applied.
+
+Start with the [current-state documentation](docs/current-state.md), then use the [deployment checklist](docs/deployment.md).
+
+The full documentation index is in [docs/README.md](docs/README.md), including the schema, Supabase setup, admin navigation, testing, coding conventions, and operating runbook.
 
 ## Initial consumer
 
 Challenge-Platform.
 
-## Planned stack
+## Current stack
 
 - Next.js application
 - Supabase Postgres
@@ -31,4 +34,4 @@ pnpm test
 pnpm build
 ```
 
-The production site is planned for `content.fairfieldbasketballclub.com`.
+The intended production hostname is `content.fairfieldbasketballclub.com`; DNS and deployment remain an external release step.

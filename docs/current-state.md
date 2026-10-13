@@ -1,0 +1,113 @@
+# Content Platform current state
+
+This is the repository-level source of truth for the Content Platform as implemented in the code and migrations. It describes the current application, not a claim that the hosted Supabase project or Vercel deployment has been changed.
+
+Audit date: 2026-10-13. This pass is local-only. Existing uncommitted application and documentation changes were inspected and preserved; no hosted migration or deployment was performed.
+
+## Backend and data model
+
+Supabase is the application backend:
+
+- Supabase Postgres stores content, revisions, media metadata, and content-to-media links.
+- Supabase Auth provides the admin sign-in session.
+- Supabase Storage provides the `content-media` bucket.
+- The `published_content` Postgres view is the public read model used by the versioned API.
+
+The schema history is in `supabase/migrations/`:
+
+| Migration | Current responsibility |
+| --- | --- |
+| `0001_content_platform.sql` | `content_items`, `content_revisions`, `media_assets`, `content_media`, the initial published view, and baseline RLS policies |
+| `0002_admin_content.sql` | `content_items.created_by` |
+| `0003_media_storage.sql` | Public `content-media` bucket, upload ownership, and published-media read policies |
+| `0004_published_snapshot_media_links.sql` | Published fields from the latest revision snapshot and public media URLs |
+| `0005_asset_library_metadata.sql` | Reusable asset-library metadata, tags, archive state, indexes, and constraints |
+
+The repository does not contain a migration-status record for the hosted database. Confirm migration state in the target Supabase project before deployment; this audit did not apply migrations or query production data.
+
+See [schema.md](./schema.md) for the table and view contract, and [supabase.md](./supabase.md) for environment and hosted-project setup.
+
+## Runtime and security model
+
+The server creates two Supabase clients in `src/lib/supabase.ts`:
+
+- The public client uses `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` for published reads and JWT validation.
+- The admin client uses `SUPABASE_SERVICE_ROLE_KEY` for server-only admin writes, asset queries, and storage operations.
+
+The service-role key must remain server-only. Admin browser pages use the Supabase browser client for password sign-in and pass the resulting bearer token to `/api/admin/*`. The API validates that token before using the server-only client. No middleware or role-specific authorization layer is present; any valid Supabase user token currently passes the application-level admin check.
+
+Public content and media are intentionally readable for the MVP. The `content-media` bucket is public, so the API returns URLs rooted at the Supabase project URL. Do not place unpublished or sensitive files in this bucket.
+
+## Admin layout and workflow
+
+`src/app/admin/AdminShell.tsx` supplies the shared admin navigation:
+
+- `/admin` — dashboard
+- `/admin/records` — primary searchable/filterable content records screen
+- `/admin/assets` — reusable asset library
+- `/admin/integrations` — public API consumer guidance
+- `/admin/status` — configuration, database, and storage health checks
+
+The workflow supports:
+
+1. Supabase Auth password sign-in at `/admin/login`.
+2. Draft creation for `tutorial`, `fbc_book`, and `shout_out` records.
+3. Required Shout Out permission confirmation.
+4. Optional media attachment while creating a draft.
+5. Draft editing, publish, and unpublish actions.
+6. Reusable asset upload, search, filtering, and attachment to content records.
+
+`/admin/content` remains as a separate, unlinked records screen. It was not removed because an existing bookmark or external link could still depend on it; `/admin/records` is the route linked by the current shell.
+
+## Media workflow
+
+There are two current upload paths, both writing to Supabase Storage and then recording metadata in `media_assets` plus a `content_media` link:
+
+- Content creation uses signed uploads: the server validates the content item, approved MIME/extension pairing, and a filename/size up to 500 MB; the browser uploads directly to `content-media`; and the completion route verifies the content-scoped path plus the stored object name, size, and MIME metadata before saving database metadata.
+- Signed content uploads accept only the explicitly mapped GIF, JPEG, PNG, WebP, MP4, MOV, WebM, PDF, Word, Excel, CSV, and plain-text MIME/extension pairs; SVG and generic `application/octet-stream` are rejected.
+- The authenticated asset-library endpoint accepts a multipart upload up to 50 MB, saves it under `library/`, and supports later attachment to content.
+
+The existing dirty media changes were preserved while adding the validation and object-verification contract around them.
+
+See [admin-navigation.md](./admin-navigation.md) for the route map and [operations.md](./operations.md) for the supported operating procedures.
+
+## API surface
+
+| Route | Access | Purpose |
+| --- | --- | --- |
+| `GET /api/v1/content` | Public | Paginated published content; filters: `type`, `challenge_id`, `page`, `page_size` |
+| `GET /api/v1/content/:id` | Public | One published item or `404` |
+| `GET /api/health` | Public | No-store configuration, published-view, and storage checks; `200` when all pass, otherwise `503` |
+| `POST /api/admin/content` | Supabase bearer token | Create a draft |
+| `GET /api/admin/content` | Supabase bearer token | List content records |
+| `GET /api/admin/content/:id` | Supabase bearer token | Load one admin record |
+| `PATCH /api/admin/content/:id` | Supabase bearer token | Save draft fields or change status |
+| `POST /api/admin/content/:id/media` | Supabase bearer token | Legacy authenticated multipart content upload, up to 500 MB |
+| `POST /api/admin/content/:id/media/sign` | Supabase bearer token | Create a signed upload URL |
+| `POST /api/admin/content/:id/media/complete` | Supabase bearer token | Validate and link a completed signed upload |
+| `GET /api/admin/assets` | Supabase bearer token | Search/filter reusable assets |
+| `POST /api/admin/assets` | Supabase bearer token | Upload a reusable asset, up to 50 MB |
+| `PUT /api/admin/assets` | Supabase bearer token | Link an asset to a content record |
+
+Published API responses are cacheable for 60 seconds with a 300-second stale-while-revalidate window. Published content fields come from the latest published revision snapshot; media links come from the linked asset records.
+
+## Deployment files and boundaries
+
+The app is a Next.js application intended for one Vercel project, with Supabase remaining the database, Auth provider, and storage provider. `next.config.ts` contains the image allowlist and security headers. `.env.example` documents the three required runtime variables. The local `.vercel/` folder is ignored project-link metadata and is not a deployment result.
+
+Deployment preparation and smoke checks are in [deployment.md](./deployment.md). The public contract is in [api-v1.md](./api-v1.md). This audit did not deploy, change DNS, or inspect hosted records.
+
+The local `.vercel/project.json` contains a linked project name and IDs, but it is ignored local metadata. A provider lookup during this audit did not establish a usable hosted project or deployment: the linked project lookup returned `404 not_found`, and the deployment listing returned `403 forbidden`. Hosted deployment state is therefore unknown and must be verified by an authorized owner before release.
+
+`vercel.json` now declares only the repository-owned Next.js build/install contract; project, domain, Root Directory, environment, and deployment ownership remain provider-side responsibilities. The package declares Next.js build, lint, typecheck, and test scripts, but no deployment script.
+
+## Airtable status
+
+Airtable is historical migration input only, not the current application backend. The importer and inventory scripts remain in the repository for an explicitly controlled, optional migration workflow. They are not called by the app, and no import or inventory run was performed during this audit.
+
+See [airtable-import.md](./airtable-import.md) and [migration-inventory.md](./migration-inventory.md) for that historical workflow. Those documents must not be read as evidence that Airtable is a live dependency.
+
+## Working-tree boundary
+
+At the audit starting point, `master` was four commits ahead of `origin/master` at `5815249` (`test: harden content API contracts`). The worktree also contained pre-existing uncommitted changes to the root README, the documentation pages, the signed and multipart media routes, and `tests/content-api.test.ts`; an untracked `docs/current-state.md`, `src/lib/media-upload.ts`, and `tsconfig.tsbuildinfo`; and a deleted `work/airtable-inventory.json`. This documentation pass does not reset, stage, commit, restore, or otherwise alter those application, data, generated, or historical-work files.
+

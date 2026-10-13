@@ -1,8 +1,10 @@
-# Content API v1
+# Public Content API v1
+
+This page is the public contract. For the backend, admin layout, media workflow, and deployment boundaries, see [current-state.md](./current-state.md).
 
 The public API is read-only and returns published content only. It is intended for Challenge-Platform and other consumer apps.
 
-Base URL (local): `http://localhost:3000/api/v1`
+Base URL: `/api/v1` on the deployed Content Platform, or `http://localhost:3000/api/v1` locally.
 
 ## List published content
 
@@ -46,7 +48,7 @@ Published responses include `Cache-Control: public, s-maxage=60, stale-while-rev
 
 ## Asset library model
 
-The `media_assets` table is the reusable asset library. It supports images, videos, documents, and arbitrary files. Each asset has:
+The `media_assets` table is the reusable asset library. It supports images, videos, documents, and arbitrary files. The current admin asset screen can upload, search, filter, and attach assets. Each asset has:
 
 - a storage bucket and path;
 - a file kind, MIME type, filename, size, and checksum;
@@ -56,4 +58,4 @@ The `media_assets` table is the reusable asset library. It supports images, vide
 - an archive flag; and
 - creation and update timestamps.
 
-`content_media` is the reuse link between assets and content. An asset can be attached to multiple content items, with a role and display order for each item. Archiving an asset hides it from future library browsing but does not delete the file or existing links. The MVP admin can browse the asset table through the authenticated server; a dedicated asset-library screen can be added without changing this model.
+`content_media` is the reuse link between assets and content. An asset can be attached to multiple content items, with a role and display order for each item. Archiving an asset hides it from future library browsing but does not delete the file or existing links. The authenticated admin API owns asset reads and writes; the public API exposes only media linked to published content.

@@ -1,4 +1,6 @@
-# Airtable Import Utility
+# Historical Airtable Import Utility
+
+Airtable is not the application backend. Supabase is the current database, Auth provider, and media storage provider; this utility is retained only for an explicitly controlled historical migration.
 
 `scripts/import-airtable.mjs` imports only these Airtable content types:
 
@@ -6,7 +8,7 @@
 - FBC Book → `fbc_book`
 - Shout Out → `shout_out`
 
-The known source is base `appn84sqPw03zEbTT`, table `tblDOTgsWfqPm18bw` (`Tutorials & Assets`). The importer is safe to rerun because it upserts on `source_system + source_record_id`.
+The known historical source is base `appn84sqPw03zEbTT`, table `tblDOTgsWfqPm18bw` (`Tutorials & Assets`). The importer is safe to rerun because it upserts on `source_system + source_record_id`. It is not called by the Next.js application.
 
 ## Default: dry run
 
