@@ -55,9 +55,9 @@ The migration captures current media for the latest legacy revision because prev
 
 ## Verification
 
-`pnpm test` exercises real admin handlers with mocked external Auth/database adapters, verifies that denial occurs before service-role instantiation, checks current scoped role/revocation, and verifies the publish handler uses one RPC. PostgreSQL tests apply the actual migrations to a disposable database, inject a publication failure, issue 12 concurrent publishes, check frozen media/filters, unpublish/republish, permission checks, and denied RPC grants.
+`npm test` exercises real admin handlers with mocked external Auth/database adapters, verifies that denial occurs before service-role instantiation, checks current scoped role/revocation, and verifies the publish handler uses one RPC. PostgreSQL tests apply the actual migrations to a disposable database, inject a publication failure, issue 12 concurrent publishes, check frozen media/filters, unpublish/republish, permission checks, and denied RPC grants.
 
-Run database tests with `CONTENT_TEST_DATABASE_URL=postgresql://postgres:<test-password>@127.0.0.1:5432/content_test pnpm test`. The test deliberately resets schemas and rejects remote hosts and database names other than `content_test`. It skips when that variable is absent. CI supplies a disposable PostgreSQL 16 service and runs typecheck, lint, tests, and build.
+Run database tests with `CONTENT_TEST_DATABASE_URL=postgresql://postgres:<test-password>@127.0.0.1:5432/content_test npm test`. The test deliberately resets schemas and rejects remote hosts and database names other than `content_test`. It skips when that variable is absent. CI supplies a disposable PostgreSQL 16 service and runs typecheck, lint, tests, and build.
 
 CI installs the existing GitHub-sourced admin design package; verify that the Actions environment can read that dependency. No credential or secret was added by this change. Local dependency installation and disposable PostgreSQL execution were blocked by the unavailable proxy/CLI and denied Docker socket, so local unit/handler results do not claim a successful database run or production acceptance.
 

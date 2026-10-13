@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { inspectRuntimeConfig } from "@/lib/runtime-config";
 import { getSupabaseAdmin, getSupabasePublic } from "@/lib/supabase";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 type HealthCheck = {
   status: "ok" | "error" | "not_configured";
   message: string;

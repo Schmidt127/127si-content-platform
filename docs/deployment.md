@@ -1,11 +1,20 @@
-# Deployment readiness
+# Deployment checklist
 
-This is the checklist for hosting the Content Platform at `content.fairfieldbasketballclub.com`.
-It does not deploy the app or change DNS.
+This is a pre-deployment runbook for the current Supabase-backed application. The checklist does not deploy the app, apply migrations, change DNS, or import Airtable data. See [current-state.md](./current-state.md) for the implementation map, [supabase.md](./supabase.md) for setup, and [operations.md](./operations.md) for the day-to-day runbook.
+
+The intended hostname is `content.fairfieldbasketballclub.com`.
+
+## Route and deployment diagnosis
+
+`GET /api/health` is implemented at `src/app/api/health/route.ts`. A local production build includes `/api/health` in the Next.js route manifest, and the handler is explicitly runtime-only so it does not cache build-time configuration. A missing Supabase setting would make the route return `503`, not `404`.
+
+This repository now includes `vercel.json` with only repository-owned build facts: Next.js framework detection, `npm ci`, and `npm run build`. It intentionally does not guess a Vercel project ID, team, domain, or Root Directory. The repository root must be the provider’s application root; `src` is not a Vercel Root Directory.
+
+The 2026-10-13 read-only provider check could not prove the live deployment: the linked project lookup returned `404 not_found`, and deployment listing returned `403 forbidden`. Therefore a production `/api/health` 404 is consistent with a wrong, missing, or inaccessible project/domain/deployment, but cannot be attributed to the route source from this checkout alone.
 
 ## Recommended hosting
 
-Use one Vercel project connected to this repository. Keep Supabase as the database, authentication provider, and media storage provider.
+Use one Vercel project connected to this repository. Keep Supabase as the database, authentication provider, and media storage provider. The local `.vercel/` directory is ignored link metadata, not proof of a completed deployment.
 
 ## Product areas that deployment must support
 
@@ -53,7 +62,7 @@ Future consumers may use an API key, scoped server-to-server credentials, or a s
 
 ### Health and status
 
-The application exposes `GET /api/health` as a lightweight deployment verification surface. It returns `200` only when all checks pass and `503` when the app is running but configuration or a dependency is unavailable. The response contains statuses and generic messages only; it never returns service keys, database details, unpublished content, or personal information.
+The application exposes `GET /api/health` as a lightweight deployment verification surface. It returns `200` only when all checks pass and `503` when the app is running but configuration or a dependency is unavailable. The response contains statuses and generic messages only; it never returns service keys, database details, unpublished content, or personal information. It does not prove that migrations have been applied, that Auth sign-in works, or that a Vercel deployment is live.
 
 The checks confirm:
 
@@ -83,11 +92,22 @@ Audit events should be append-only and server-generated. They should be added as
    - `npm run lint`
    - `npm test`
    - `npm run build`
-2. Confirm the Supabase migrations have been run, including `0003_media_storage.sql`.
+2. Confirm the Supabase migrations recorded for the target project match supabase/migrations/ (Production history: see docs/current-state.md). This repository does not apply them automatically.
 3. Confirm the `content-media` Storage bucket exists.
 4. Confirm the admin user exists in Supabase Authentication.
 5. Remove test records such as `Test Shout Out`, or leave them as drafts if they are useful for testing.
 6. Request `/api/health` and confirm it returns `200` with all checks marked `ok`.
+
+For a production 404, an authorized Vercel owner must verify, in this order:
+
+1. The Vercel project is the intended project for `Schmidt127/127si-content-platform`.
+2. The project Root Directory is the repository root, not `src` or another sibling application.
+3. The production alias and `content.fairfieldbasketballclub.com` point to that project and to a deployment built from the commit containing `src/app/api/health/route.ts` and `vercel.json`.
+4. The deployment build uses the repository’s Next.js configuration and succeeds.
+
+Those checks require Vercel project/domain/deployment access and are intentionally not performed by this local-only task.
+
+The repository audit on 2026-10-13 did not establish a hosted deployment. The ignored `.vercel/project.json` is only local link metadata; the provider lookup for its project returned `404 not_found`, and deployment listing returned `403 forbidden`. Treat deployment status as unknown until an authorized owner verifies the intended Vercel project and deployment.
 
 ## Environment variables
 
@@ -121,3 +141,7 @@ After the hosting project is ready, add `content.fairfieldbasketballclub.com` as
 - Do not use the service-role key in client components.
 - Published API responses are designed to be cacheable; admin routes remain authenticated.
 - Supabase Storage and database changes are managed through Supabase, not through the hosting deployment.
+- Airtable is historical migration input only. It is not required for the application to serve content or administer records.
+- This task does not deploy, change DNS, or apply hosted Supabase migrations.
+
+For local verification and test coverage, see [testing.md](./testing.md). For the route-level admin workflow, see [admin-navigation.md](./admin-navigation.md).
