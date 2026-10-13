@@ -8,7 +8,7 @@ function isUniqueViolation(error: unknown) {
   return typeof error === "object" && error !== null && (error as { code?: unknown }).code === "23505";
 }
 
-/** Service-role release store. Only call after `authorizeAdmin` succeeds. */
+/** Service-role release store. Only call after `authenticateContentAdmin` succeeds. */
 export function supabaseReleaseStore(client: SupabaseClient): ReleaseStore {
   return {
     async contentExists(contentItemId) {

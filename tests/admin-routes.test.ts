@@ -31,6 +31,8 @@ const cases = [
   ["content/[id]/media/route.ts", ["POST"]],
   ["content/[id]/media/sign/route.ts", ["POST"]],
   ["content/[id]/media/complete/route.ts", ["POST"]],
+  ["content/[id]/releases/route.ts", ["GET", "POST"]],
+  ["content/[id]/releases/[releaseId]/route.ts", ["PATCH"]],
 ] as const;
 
 test("every privileged route rejects unauthenticated/non-admin callers before database or body access", async () => {

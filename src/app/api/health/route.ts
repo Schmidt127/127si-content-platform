@@ -28,20 +28,25 @@ export async function GET() {
   const checks: Record<string, HealthCheck> = {
     configuration,
     database: config.ready ? error("Checking published content access.") : { status: "not_configured", message: "Skipped until runtime configuration is complete." },
+    destinations: config.ready ? error("Checking destination release access.") : { status: "not_configured", message: "Skipped until runtime configuration is complete." },
     storage: config.ready ? error("Checking content-media storage.") : { status: "not_configured", message: "Skipped until runtime configuration is complete." },
   };
 
   if (config.ready) {
     const publicClient = getSupabasePublic();
     const adminClient = getSupabaseAdmin();
-    const [databaseResult, storageResult] = await Promise.all([
+    const [databaseResult, destinationResult, storageResult] = await Promise.all([
       publicClient?.from("published_content").select("id", { head: true, count: "exact" }),
+      publicClient?.from("published_destination_content").select("id", { head: true, count: "exact" }),
       adminClient?.storage.from("content-media").list("", { limit: 1 }),
     ]);
 
     checks.database = !databaseResult || databaseResult.error
       ? error("Published content access is unavailable.")
       : ok("Published content access is available.");
+    checks.destinations = !destinationResult || destinationResult.error
+      ? error("Destination release access is unavailable. Confirm migration 0006_content_releases.sql is applied.")
+      : ok("Destination release access is available.");
     checks.storage = !storageResult || storageResult.error
       ? error("The content-media storage bucket is unavailable.")
       : ok("The content-media storage bucket is available.");
