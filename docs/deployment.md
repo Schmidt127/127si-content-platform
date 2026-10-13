@@ -53,15 +53,15 @@ Future consumers may use an API key, scoped server-to-server credentials, or a s
 
 ### Health and status
 
-Before enterprise expansion, add a lightweight operational status surface that can confirm:
+The application exposes `GET /api/health` as a lightweight deployment verification surface. It returns `200` only when all checks pass and `503` when the app is running but configuration or a dependency is unavailable. The response contains statuses and generic messages only; it never returns service keys, database details, unpublished content, or personal information.
 
-- The application is running.
-- Supabase database access is available.
-- Storage is available.
-- The public API can return published content.
-- The latest migration/configuration state is known.
+The checks confirm:
 
-Health information should avoid exposing service keys, database details, unpublished content, or personal information. A future protected admin status page is preferred over a detailed public diagnostics endpoint.
+- The required runtime configuration is present and the Supabase URL is valid.
+- The published-content read model is reachable using the public Supabase client.
+- The `content-media` Storage bucket is reachable using the server-only client.
+
+The protected admin status page at `/admin/status` displays these checks. A future migration version check can be added once migration metadata is exposed by the deployment environment.
 
 ### Future audit capabilities
 
@@ -87,6 +87,7 @@ Audit events should be append-only and server-generated. They should be added as
 3. Confirm the `content-media` Storage bucket exists.
 4. Confirm the admin user exists in Supabase Authentication.
 5. Remove test records such as `Test Shout Out`, or leave them as drafts if they are useful for testing.
+6. Request `/api/health` and confirm it returns `200` with all checks marked `ok`.
 
 ## Environment variables
 
@@ -111,7 +112,8 @@ After the hosting project is ready, add `content.fairfieldbasketballclub.com` as
 - Create a draft Shout Out.
 - Confirm it appears in `/admin`.
 - Publish it and confirm it appears in `/content`.
-- Confirm the public API responds at `/api/v1/content` (with `destination` when required) and `/api/health` returns `{ "status": "ok" }`.
+- Confirm the public API responds at `/api/v1/content`.
+- Confirm `/api/health` returns `200` after the database and storage checks pass.
 - Upload one approved image or video and confirm it displays correctly.
 
 ## Runtime notes

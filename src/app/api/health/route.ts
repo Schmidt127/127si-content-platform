@@ -1,24 +1,52 @@
 import { NextResponse } from "next/server";
-import { getSupabasePublic } from "@/lib/supabase";
+import { inspectRuntimeConfig } from "@/lib/runtime-config";
+import { getSupabaseAdmin, getSupabasePublic } from "@/lib/supabase";
 
-/** Operational probe: configured public Supabase client and published read model reachable (no destination filter). */
+type HealthCheck = {
+  status: "ok" | "error" | "not_configured";
+  message: string;
+};
+
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
+
+function ok(message: string): HealthCheck {
+  return { status: "ok", message };
+}
+
+function error(message: string): HealthCheck {
+  return { status: "error", message };
+}
+
 export async function GET() {
-  const supabase = getSupabasePublic();
-  if (!supabase) {
-    return NextResponse.json(
-      { status: "degraded", checks: { configured: false, published_content: "skipped" } },
-      { status: 503, headers: { "Cache-Control": "no-store" } },
-    );
+  const config = inspectRuntimeConfig();
+  const configuration = config.ready
+    ? ok("Required runtime configuration is present.")
+    : error(`Missing or invalid configuration: ${[...config.missing, ...config.invalid].join(", ")}.`);
+  const checks: Record<string, HealthCheck> = {
+    configuration,
+    database: config.ready ? error("Checking published content access.") : { status: "not_configured", message: "Skipped until runtime configuration is complete." },
+    storage: config.ready ? error("Checking content-media storage.") : { status: "not_configured", message: "Skipped until runtime configuration is complete." },
+  };
+
+  if (config.ready) {
+    const publicClient = getSupabasePublic();
+    const adminClient = getSupabaseAdmin();
+    const [databaseResult, storageResult] = await Promise.all([
+      publicClient?.from("published_content").select("id", { head: true, count: "exact" }),
+      adminClient?.storage.from("content-media").list("", { limit: 1 }),
+    ]);
+
+    checks.database = !databaseResult || databaseResult.error
+      ? error("Published content access is unavailable.")
+      : ok("Published content access is available.");
+    checks.storage = !storageResult || storageResult.error
+      ? error("The content-media storage bucket is unavailable.")
+      : ok("The content-media storage bucket is available.");
   }
-  const { error, count } = await supabase.from("published_content").select("*", { count: "exact", head: true });
-  if (error) {
-    return NextResponse.json(
-      { status: "degraded", checks: { configured: true, published_content: "error" } },
-      { status: 503, headers: { "Cache-Control": "no-store" } },
-    );
-  }
+
+  const healthy = Object.values(checks).every((check) => check.status === "ok");
   return NextResponse.json(
-    { status: "ok", checks: { configured: true, published_content: "ok", published_count: count ?? 0 } },
-    { headers: { "Cache-Control": "no-store" } },
+    { status: healthy ? "ok" : "degraded", checks },
+    { status: healthy ? 200 : 503, headers: NO_STORE_HEADERS },
   );
 }
