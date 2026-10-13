@@ -48,12 +48,12 @@ Large files and video delivery should be reviewed before enterprise scale. The i
 
 ### Public API and consumers
 
-Challenge-Platform is the first consumer. Other 127SI applications should consume published content through `/api/v1`, rather than connecting directly to Supabase tables.
+Challenge-Platform and Referee-Platform are the consumers. They request `destination=challenge` and `destination=referee` respectively through `/api/v1`, rather than connecting directly to Supabase tables.
 
 The deployment must preserve:
 
 - Stable content IDs and slugs.
-- Type and challenge filters.
+- The required destination filter, plus type and challenge filters.
 - Pagination and predictable response shapes.
 - Cacheable public reads.
 - Authenticated admin-only writes.
@@ -68,6 +68,7 @@ The checks confirm:
 
 - The required runtime configuration is present and the Supabase URL is valid.
 - The published-content read model is reachable using the public Supabase client.
+- The destination read model (`published_destination_content`, from migration `0006`) is reachable using the public Supabase client.
 - The `content-media` Storage bucket is reachable using the server-only client.
 
 The protected admin status page at `/admin/status` displays these checks. A future migration version check can be added once migration metadata is exposed by the deployment environment.
@@ -92,7 +93,7 @@ Audit events should be append-only and server-generated. They should be added as
    - `pnpm lint`
    - `pnpm test`
    - `pnpm build`
-2. Confirm the Supabase migrations have been run through `0005_asset_library_metadata.sql` in the target project. Do this in the Supabase environment; this repository does not apply them automatically.
+2. Confirm the Supabase migrations have been run through `0006_content_releases.sql` in the target project, using the owner procedure in [supabase.md](./supabase.md#destination-release-migration-0006). Do this in the Supabase environment; this repository does not apply them automatically.
 3. Confirm the `content-media` Storage bucket exists.
 4. Confirm the admin user exists in Supabase Authentication.
 5. Remove test records such as `Test Shout Out`, or leave them as drafts if they are useful for testing.
@@ -108,6 +109,24 @@ For a production 404, an authorized Vercel owner must verify, in this order:
 Those checks require Vercel project/domain/deployment access and are intentionally not performed by this local-only task.
 
 The repository audit on 2026-10-13 did not establish a hosted deployment. The ignored `.vercel/project.json` is only local link metadata; the provider lookup for its project returned `404 not_found`, and deployment listing returned `403 forbidden`. Treat deployment status as unknown until an authorized owner verifies the intended Vercel project and deployment.
+
+## Destination release deployment order
+
+The destination change spans the database, this app, and two consumers. Ship it in this order, with owner approval at each hosted step:
+
+1. **Consumers (safe any time).** The Challenge and Referee changes only add `destination=…` to their requests and reject mismatched items. The current API ignores unknown parameters, so they work before and after the Content change.
+2. **Migration `0006` (owner-run).** Apply it to the confirmed Content project. It creates no releases, so public visibility does not change until the Content deploy.
+3. **Owner confirms destination assignments** from [destination-assignment-report.md](./destination-assignment-report.md). Do not deploy before this.
+4. **Assignment data step (owner-run, optional).** Run the approved SQL from the report, or create releases by hand in the admin after deploy.
+5. **Content deploy.** The public API then requires `destination` and shows only actively released items. Anything not assigned stops being publicly visible.
+6. **Smoke test** below, including both destinations.
+
+### Rollback
+
+- **Content app:** redeploy the previous deployment. The old app reads `published_content` and ignores `content_releases`, so it works with `0006` in place.
+- **Assignment data:** use the undo SQL in the assignment report. It archives published Challenge releases that have no admin author and were created after the assignment start time, so release history is kept.
+- **Migration `0006`:** follow the rollback steps in [supabase.md](./supabase.md#destination-release-migration-0006). Roll back the app first; dropping the table discards release history.
+- **Consumers:** revert their commits. This is optional, since they also work against the old API.
 
 ## Environment variables
 
@@ -131,9 +150,11 @@ After the hosting project is ready, add `content.fairfieldbasketballclub.com` as
 - Open `/admin/login` and sign in.
 - Create a draft Shout Out.
 - Confirm it appears in `/admin`.
-- Publish it and confirm it appears in `/content`.
-- Confirm the public API responds at `/api/v1/content`.
-- Confirm `/api/health` returns `200` after the database and storage checks pass.
+- Publish its library version, then release it to Challenge only in **Publishing destinations**.
+- Confirm it appears in `/api/v1/content?destination=challenge` and `/content` (Challenge view), and is absent from `/api/v1/content?destination=referee`.
+- Confirm `/api/v1/content` without `destination` returns `400`.
+- Unpublish the Challenge release and confirm the item disappears (allow for the cache window).
+- Confirm `/api/health` returns `200` after the database, destinations, and storage checks pass.
 - Upload one approved image or video and confirm it displays correctly.
 
 ## Runtime notes

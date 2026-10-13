@@ -15,15 +15,17 @@ Provide the three Supabase variables from [supabase.md](./supabase.md). Open `/`
 
 ## Health and status
 
-Use `GET /api/health` for a no-store check. A healthy response is HTTP `200` with configuration, database, and storage checks marked `ok`. An incomplete or unavailable environment returns HTTP `503` with generic messages. `/admin/status` presents the same checks to an authenticated operator.
+Use `GET /api/health` for a no-store check. A healthy response is HTTP `200` with configuration, database, destinations, and storage checks marked `ok`. An incomplete or unavailable environment returns HTTP `503` with generic messages. `/admin/status` presents the same checks to an authenticated operator.
 
-The health route checks runtime configuration, access to `published_content` through the public client, and access to the `content-media` bucket through the server client. It does not check Auth sign-in, migration versions, DNS, Vercel, or the existence of a specific content record.
+The health route checks runtime configuration, access to `published_content` and `published_destination_content` through the public client, and access to the `content-media` bucket through the server client. It does not check Auth sign-in, migration versions, DNS, Vercel, or the existence of a specific content record.
 
 ## Publish content
 
-Use `/admin/new` to create a draft. Use `/admin/records` to filter records and publish or unpublish. Publishing creates a revision snapshot, updates the record status, and makes the item eligible for the public API. Editing a published record saves it back to draft; publish it again to create a new public revision.
+Use `/admin/new` to create a draft. Publishing the library version (from the edit page or `/admin/records`) creates a revision snapshot and updates the record status. Editing a published record saves it back to draft; publish it again to create a new public revision.
 
-An item that is draft, unpublished, removed, or unknown is not returned by the public API. The public API is read-only.
+Publishing the library version alone does not show the item anywhere. Use **Publishing destinations** on `/admin/:id/edit` to release it to Challenge, Referee, both, or neither. See [content-releases.md](./content-releases.md).
+
+The public API returns an item for a destination only when the library version is published and that destination's release is published, has started, and has not ended. Everything else (drafts, unreleased, scheduled, expired, unpublished, archived, removed, or unknown) is omitted. The public API is read-only.
 
 ## Upload media
 
@@ -35,14 +37,17 @@ If metadata or linking fails after an upload, the current routes attempt to remo
 
 ## Release boundary
 
-Before a release, verify the target Supabase project, run migrations `0001` through `0005`, confirm the bucket and Auth user, configure hosting variables, run the local checks, and perform the smoke test in [deployment.md](./deployment.md). Deployment and DNS changes are external release steps and were not performed by this documentation pass.
+Before a release, verify the target Supabase project, run migrations `0001` through `0006` (the owner procedure for `0006` is in [supabase.md](./supabase.md#destination-release-migration-0006)), have the owner approve destination assignments from the [assignment report](./destination-assignment-report.md), confirm the bucket and Auth user, configure hosting variables, run the local checks, and perform the smoke test in [deployment.md](./deployment.md). Deployment and DNS changes are external release steps and were not performed by this documentation pass.
 
 The repository currently has no deployment workflow or migration automation. The local `.vercel` link metadata is not deployment evidence; hosted deployment state was not established in the audit.
 
 ## Incident notes
 
 - If `/api/health` reports missing configuration, check the three runtime variable names and the Supabase URL format.
-- If database access is unavailable, verify the target project has the published view and the migration sequence through `0005`.
+- If database access is unavailable, verify the target project has the published view and the migration sequence through `0006`.
+- If the `destinations` health check fails, migration `0006` has not been applied to that project.
+- If an item is missing from a consumer, check on the edit page that its library version is published and that its release for that destination is Published (not Scheduled, Expired, Unpublished, or Archived). Allow up to about six minutes for cached responses.
+- If a consumer returns `400`, confirm it sends `destination=challenge` or `destination=referee`.
 - If media delivery fails, verify the `content-media` bucket is public and that the returned URL uses the configured Supabase project URL.
 - If admin calls return `401`, sign in again and verify the browser is sending the current bearer token.
 - If admin calls return `503`, verify both public and service-role variables are configured on the server.
