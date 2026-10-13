@@ -5,17 +5,10 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { createClient } from "@supabase/supabase-js";
+import { INCLUDED_TYPES, normalizeRecord, validateSourceRecords } from "./airtable-import-logic.mjs";
 
 const DEFAULT_BASE_ID = "appn84sqPw03zEbTT";
 const DEFAULT_TABLE_ID = "tblDOTgsWfqPm18bw";
-const INCLUDED_TYPES = new Map([
-  ["tutorial", "tutorial"],
-  ["fbc book", "fbc_book"],
-  ["fbc_book", "fbc_book"],
-  ["shout out", "shout_out"],
-  ["shout_out", "shout_out"],
-]);
-
 const args = parseArgs(process.argv.slice(2));
 const baseId = args.base ?? DEFAULT_BASE_ID;
 const tableId = args.table ?? DEFAULT_TABLE_ID;
@@ -27,6 +20,12 @@ const inputPath = args.input ? resolve(args.input) : null;
 const records = inputPath
   ? JSON.parse(readFileSync(inputPath, "utf8"))
   : readAirtableRecords(baseId, tableId);
+
+const sourceValidationIssues = validateSourceRecords(records);
+if (sourceValidationIssues.length > 0) {
+  const details = sourceValidationIssues.map(({ index, message }) => `${index === null ? "source" : `record ${index + 1}`}: ${message}`).join("\n");
+  throw new Error(`Airtable source validation failed before any import writes:\n${details}`);
+}
 
 const normalized = records.map(normalizeRecord);
 const audit = {
@@ -83,23 +82,6 @@ function readAirtableRecords(base, table) {
   return Array.isArray(parsed) ? parsed : parsed.records ?? [];
 }
 
-function normalizeRecord(record) {
-  const fields = record.fields ?? {};
-  const sourceType = text(find(fields, ["Type", "Content Type", "Content type", "Category"]));
-  const attachments = attachmentList(find(fields, ["Attachments", "Attachment", "Media", "Files", "Images", "Videos"]));
-  return {
-    source_record_id: record.id,
-    source_type: sourceType,
-    content_type: INCLUDED_TYPES.get(sourceType.toLowerCase()),
-    title: text(find(fields, ["Title", "Name", "Headline", "Article Title"])) || `Airtable ${record.id}`,
-    description: text(find(fields, ["Description", "Short Description", "Summary", "Story"])),
-    athlete: value(find(fields, ["Athlete", "Athlete Name", "Player"])),
-    challenge: value(find(fields, ["Challenge", "Challenges", "Challenge ID"])),
-    attachments,
-    fields,
-  };
-}
-
 function toContentItem(record) {
   const slug = `${record.content_type}-${record.source_record_id}`.toLowerCase();
   return {
@@ -124,17 +106,7 @@ function toContentItem(record) {
   };
 }
 
-function find(fields, names) {
-  const key = Object.keys(fields).find((candidate) => names.some((name) => candidate.trim().toLowerCase() === name.toLowerCase()));
-  return key ? fields[key] : undefined;
-}
-
-function value(input) { return input ?? null; }
 function text(input) { return typeof input === "string" ? input.trim() : Array.isArray(input) ? input.map(text).filter(Boolean).join(", ") : input?.name ?? ""; }
-function attachmentList(input) {
-  if (!Array.isArray(input)) return [];
-  return input.map((item) => ({ id: item.id ?? null, filename: item.filename ?? null, type: item.type ?? null, size: item.size ?? null, url: item.url ?? null }));
-}
 function parseArgs(argv) {
   const result = {};
   for (let i = 0; i < argv.length; i++) {
