@@ -12,7 +12,7 @@ npm run build
 
 `npm test` runs Node's built-in test runner against `tests/*.test.ts` with Node's experimental TypeScript stripping. There is no Playwright suite, hosted integration test, or Supabase emulator configuration in this repository.
 
-`npm run lint` runs `eslint .`, but the current flat config does not match `.ts`/`.tsx` files, so it does not lint TypeScript sources today. Treat a green lint as "no JavaScript lint errors", not as TypeScript lint coverage.
+`npm run lint` runs `eslint .` with Next.js core web vitals and TypeScript recommended rules, including `.ts`/`.tsx` sources and tests. Generated build output and `next-env.d.ts` are ignored. Existing explicit `any` and unused-variable findings remain warnings while the typing backlog is addressed. Correctness rules retain their recommended severity. The older verification table below records the previous configuration.
 
 Two kinds of database test exist:
 
