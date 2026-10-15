@@ -108,11 +108,11 @@ For a production 404, an authorized Vercel owner must verify, in this order:
 
 Those checks require Vercel project/domain/deployment access and are intentionally not performed by this local-only task.
 
-The repository audit on 2026-10-13 did not establish a hosted deployment. The ignored `.vercel/project.json` is only local link metadata; the provider lookup for its project returned `404 not_found`, and deployment listing returned `403 forbidden`. Treat deployment status as unknown until an authorized owner verifies the intended Vercel project and deployment.
+As of 2026-10-15 the Vercel project `127si-content-platform` serves Production deployment `dpl_2zChyrtimR6G67pzm5Jf6iE7KQm7` at `content.fairfieldbasketballclub.com`, built by CLI from commit `823e919` (not on GitHub). Its Production branch setting is `127-si-shooting-challenge`, an unrelated README stub; change it to `master` before relying on Git-triggered deploys, and deploy from Git rather than the CLI so the running commit is traceable. Rollback point: promote `dpl_2zChyrtimR6G67pzm5Jf6iE7KQm7` in Vercel if a new deploy regresses.
 
 ## Destination release deployment order
 
-The destination change spans the database, this app, and two consumers. Ship it in this order, with owner approval at each hosted step:
+Historical: steps 1–5 were completed for Production by 2026-10-14 (29 Challenge and 2 Referee releases are live). The order remains the procedure for a new environment. The destination change spans the database, this app, and two consumers. Ship it in this order, with owner approval at each hosted step:
 
 1. **Consumers (safe any time).** The Challenge and Referee changes only add `destination=…` to their requests and reject mismatched items. The current API ignores unknown parameters, so they work before and after the Content change.
 2. **Migration `0006` (owner-run).** Apply it to the confirmed Content project. It creates no releases, so public visibility does not change until the Content deploy.

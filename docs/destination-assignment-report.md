@@ -1,5 +1,7 @@
 # Existing-record destination assignment report
 
+> **Historical (2026-10-15):** Migration `0006` has since been applied and releases assigned in Production: 29 published `challenge` and 2 published `referee` releases (read-only SQL, 2026-10-15). The counts and SQL below describe the 2026-10-13 starting point only.
+
 **Snapshot:** 2026-10-13, read-only SQL against the `127SI Content Platform` Supabase project (`oqnnvmxjdersgcguhvsc`). No hosted data or schema was changed. Re-run the queries at the end before acting; the data may have changed.
 
 **Decision required from the owner** before any release rows are created.

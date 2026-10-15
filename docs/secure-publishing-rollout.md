@@ -4,6 +4,8 @@ Code on `master` ships **scoped admin + atomic publish behind `CONTENT_SECURE_PU
 
 No hosted migration, account-role assignment, deployment, storage visibility change, or branch administration was performed by agents.
 
+As of 2026-10-15, `0008` is **not** applied in Production (no `set_content_status` function). After `0008`, `published_content` reads media only from the revision snapshot; the legacy publish path writes the same media snapshot (since `swarm/content-destination-reconcile`), so applying `0008` before enabling the flag no longer drops media from newly published items. Release routes use the same `content_admin` gate when the flag is on.
+
 ## Rollout flag
 
 | Variable | Default | When `true` |

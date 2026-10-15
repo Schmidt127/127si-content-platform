@@ -119,7 +119,7 @@ Migration `supabase/migrations/0006_content_releases.sql` creates the table, con
 
 ## Existing content
 
-Migration 0006 creates **no** releases. Existing records are visible on neither destination until an administrator, or an owner-approved data step, adds a release. See [destination-assignment-report.md](./destination-assignment-report.md) for counts, the proposed assignment, and the records needing review.
+Migration 0006 creates **no** releases. Existing records are visible on neither destination until an administrator, or an owner-approved data step, adds a release. In Production, 0006 was applied on 2026-10-14 and 29 Challenge + 2 Referee releases were assigned. See [destination-assignment-report.md](./destination-assignment-report.md) for counts, the proposed assignment, and the records needing review.
 
 ## Consumers
 

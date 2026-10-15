@@ -4,7 +4,7 @@ The repository's database contract is the SQL in `supabase/migrations/`. Supabas
 
 ## Migration order
 
-Apply migrations in filename order. The application currently expects all six files to be present in the target project.
+Apply migrations in filename order. The application requires `0001`–`0007`; `0008` is required only before setting `CONTENT_SECURE_PUBLISHING=true`. Production state is recorded in [current-state.md](./current-state.md#production-database-verified-read-only).
 
 | Migration | Effect |
 | --- | --- |
@@ -13,7 +13,10 @@ Apply migrations in filename order. The application currently expects all six fi
 | `0003_media_storage.sql` | Creates or confirms the public `content-media` bucket, adds upload ownership, and defines published-media read policies. |
 | `0004_published_snapshot_media_links.sql` | Makes the published view read content fields from the latest published revision snapshot and adds relative media URLs. |
 | `0005_asset_library_metadata.sql` | Adds reusable-library metadata, asset kinds, tags, archive state, indexes, and constraints. |
-| `0006_content_releases.sql` | Adds destination releases (`content_releases`), their constraints, indexes, RLS, and the `published_destination_content` view. Creates no release rows. |
+| `0006_content_releases.sql` | Adds destination releases (`content_releases`), their constraints, indexes, RLS, and the `published_destination_content` view. Creates no release rows. Reconciled to the Production DDL; idempotent there. |
+| `0007_backfill_published_revisions.sql` | Inserts a revision snapshot for published items that had none, so they appear in the published views. |
+| `0008_atomic_publication.sql` | Adds the service-role-only `set_content_status(uuid, text)` RPC (locked, idempotent, one transaction), backfills a media snapshot into each item's latest revision, and makes `published_content` read `media`/`challenge_ids` from the revision snapshot. |
+| `0009_content_releases_api_write_grants.sql` | Revokes insert/update/delete/truncate on `content_releases` from `anon`/`authenticated` (already true in Production) and grants read on the release table and destination view. |
 
 The application does not apply migrations automatically. Run and verify them in the target Supabase project as a release prerequisite.
 

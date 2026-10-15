@@ -13,6 +13,7 @@ The current implementation uses Supabase as its backend. Airtable appears only i
 
 - [Content releases](./content-releases.md) — one canonical record, per-destination releases to Challenge and Referee, states, scheduling, visibility rule, and history.
 - [Destination assignment report](./destination-assignment-report.md) — existing-record counts, proposed destination assignments, and the owner-approval SQL (not executed).
+- [Destination API contract](./contracts/destination-api.md) — exact fields, errors, ordering, and guarantees Challenge and Referee rely on.
 - [Public API v1](./api-v1.md) — public response contract, required destination, filters, pagination, caching, and media URLs.
 - [Deployment](./deployment.md) — pre-deployment configuration and smoke checks; it does not deploy or apply migrations.
 - [Operations](./operations.md) — local operation, health checks, publishing, media recovery, and release boundaries.

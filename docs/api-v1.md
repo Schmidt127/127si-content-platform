@@ -64,15 +64,15 @@ Results are ordered by release: featured releases first, then ascending `display
 
 `ends_at: null` means permanent. Consumers should treat an item whose `release.destination` differs from the destination they requested as a contract violation; both current consumers fail closed in that case.
 
-Each media item includes `storage_path` and a relative `public_url`, for example:
+Each media item includes `storage_path` and an absolute `public_url`: the API prefixes the stored `/storage/v1/object/public/<bucket>/<storage_path>` path with the Content deployment's Supabase project URL, for example:
 
 ```text
-/storage/v1/object/public/content-media/<storage_path>
+https://oqnnvmxjdersgcguhvsc.supabase.co/storage/v1/object/public/content-media/<storage_path>
 ```
 
-Prefix that path with the Supabase project URL used by the consumer app. The MVP uses a public `content-media` bucket, so published media links do not require a browser-side secret or signed URL.
+The MVP uses a public `content-media` bucket, so published media links do not require a browser-side secret or signed URL.
 
-The content fields in the response, including visibility, come from the latest published revision snapshot. Media comes from the library record, so every destination receives the same media assets. Editing a library record saves it back to draft, which hides it on every destination until a new revision is published.
+The content fields in the response, including visibility, come from the latest published revision snapshot. Media is shared by the library record, so every destination receives the same media assets. Before migration `0008`, media reflects the record's currently linked assets; after `0008`, media is the snapshot frozen when the revision was published. Editing a library record saves it back to draft, which hides it on every destination until a new revision is published.
 
 ## Get one published item
 

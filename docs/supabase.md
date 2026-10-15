@@ -42,15 +42,15 @@ The public API returns URLs for this bucket. The content creation screen uses a 
 
 ## Database setup
 
-Apply `0001` through `0006` in order, then verify the `published_content` and `published_destination_content` views and the `content-media` bucket in the target project. The app's `/api/health` check confirms configuration, both views, and Storage bucket reachability; it does not report migration versions.
+For a new project, apply every file in `supabase/migrations/` in order, then verify the `published_content` and `published_destination_content` views and the `content-media` bucket. The app's `/api/health` check confirms configuration, both views, and Storage bucket reachability; it does not report migration versions.
 
-The hosted Content project is `127SI Content Platform` (`oqnnvmxjdersgcguhvsc`). On 2026-10-13 its tables matched migrations `0001`–`0005`, but its Supabase migration history was empty, so those files were applied outside the CLI ledger.
+The hosted Content project is `127SI Content Platform` (`oqnnvmxjdersgcguhvsc`). Its tables matched `0001`–`0005` on 2026-10-13 with an empty migration history (applied outside the CLI ledger). On 2026-10-15 its history records `20261014111739 content_releases` (`0006`) and `20261014111743 backfill_published_revisions` (`0007`). `0008_atomic_publication.sql` and `0009_content_releases_api_write_grants.sql` are not applied; both are owner-gated. See [current-state.md](./current-state.md#production-database-verified-read-only).
 
 For the exact tables, policies, and view behavior, see [schema.md](./schema.md).
 
 ## Destination release migration (0006)
 
-Owner-controlled. Agents must not apply it. It creates a new table and view and changes no existing rows.
+Applied to Production on 2026-10-14 (`20261014111739`); the procedure below is retained for new environments. Owner-controlled. Agents must not apply it. It creates a new table and view and changes no existing rows.
 
 1. **Confirm the target.** In the Supabase dashboard, open project `oqnnvmxjdersgcguhvsc` and run `select count(*) from public.content_items;` to confirm it is the Content database.
 2. **Back up.** Take a database backup or confirm point-in-time recovery is available.
@@ -68,7 +68,7 @@ Rollback (only after reverting the application deploy, since the new app require
 
 ## Security boundaries
 
-- Do not use user-editable metadata as an authorization claim; this code currently authorizes by token validity only.
+- Do not use user-editable metadata as an authorization claim. With `CONTENT_SECURE_PUBLISHING` off, admin routes authorize by token validity only; with it on, they require server-owned `app_metadata.content_admin`.
 - Destination releases are written only by admin routes through the service role; the public key can read only active published releases.
 - Keep the public bucket limited to approved public or link-only content.
 - Do not expose the service-role key in browser code or public logs.

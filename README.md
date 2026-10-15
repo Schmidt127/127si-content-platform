@@ -4,7 +4,7 @@ Central content service for 127SI Tutorials, FBC Book readings, and athlete Shou
 
 ## Status
 
-The MVP admin, publishing workflow, per-destination releases, Supabase media paths, health checks, and public v1 API are implemented. Migration `0006_content_releases.sql` is not applied to any hosted project. The repository is prepared for deployment but this repository state does not prove that hosted Supabase migrations or a Vercel deployment have been applied.
+The MVP admin, publishing workflow, per-destination releases, Supabase media paths, health checks, and public v1 API are implemented. `master` is the canonical branch (the GitHub default branch `127-si-shooting-challenge` is an unrelated README stub). Production applies migrations `0006` and `0007`, not `0008`/`0009`, and currently serves a CLI deploy of an unpushed branch rather than `master`; see [current state](docs/current-state.md) and the [destination API contract](docs/contracts/destination-api.md).
 
 Start with the [current-state documentation](docs/current-state.md), then use the [deployment checklist](docs/deployment.md).
 
@@ -31,7 +31,7 @@ Consumers read only through the public API, never the database. See [content rel
 ## Local commands
 
 ```text
-npm install
+npm ci
 npm run dev
 npm run typecheck
 npm run lint

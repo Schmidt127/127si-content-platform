@@ -1,138 +1,115 @@
 # Content Platform current state
 
-This is the repository-level source of truth for the Content Platform as implemented in the code and migrations. It describes the current application, not a claim that the hosted Supabase project or Vercel deployment has been changed.
+This is the repository-level source of truth for the Content Platform. It separates what is **implemented** on this branch, what is **tested**, what is **merged** on GitHub, and what is **deployed** to Production. Those are not the same thing today; see [Repository identity and Production divergence](#repository-identity-and-production-divergence).
 
-Audit date: 2026-10-13. This pass is local-only. Existing uncommitted application and documentation changes were inspected and preserved; no hosted migration or deployment was performed.
+Reconciled: 2026-10-15 on branch `swarm/content-destination-reconcile` (based on `origin/master` `b7f3b48`). Production facts below come from read-only SQL against Supabase `oqnnvmxjdersgcguhvsc` and read-only `GET` requests to `https://content.fairfieldbasketballclub.com` on 2026-10-15. Nothing hosted was changed.
+
+## Repository identity and Production divergence
+
+| Fact | Evidence (2026-10-15) |
+| --- | --- |
+| **`master` is the canonical GitHub line.** | `origin/master` contains every merged PR (#2–#12); the GitHub default branch `127-si-shooting-challenge` is a single `Initial commit` (`abd5422`, README only) with no shared history with the application. |
+| The GitHub default branch is misconfigured. | `origin/HEAD -> origin/127-si-shooting-challenge`. Owner must set the default branch to `master`. |
+| The Vercel project `127si-content-platform` Production branch is also `127-si-shooting-challenge`. | Owner must set it to `master`; a Git-triggered Production deploy from the current setting would build the README stub. |
+| **Production is not running `master`.** | Production deployment `dpl_2zChyrtimR6G67pzm5Jf6iE7KQm7` (content.fairfieldbasketballclub.com) serves `823e919`, a CLI deploy (2026-10-13) of the owner's local branch `feat/content-destination-releases`, which was never pushed. |
+| `master` as merged would regress the live contract. | `master`'s v1 routes stripped the `release` object and only required `destination` when `CONTENT_V1_REQUIRE_DESTINATION=true`. Both consumers and `scripts/verify-content-api-destinations.mjs` expect `release.destination`. |
+| This branch reconciles the two lines. | It ports the local-only work onto `master` (cherry-picked with `-x`), keeps `master`'s atomic publication (`0008`), admin authorization, `CONTENT_SECURE_PUBLISHING` flag and npm lockfile, and restores the live public contract. |
+
+## Production database (verified read-only)
+
+| Item | State |
+| --- | --- |
+| Supabase migration history | `20261014111739 content_releases`, `20261014111743 backfill_published_revisions`. Migrations `0001`–`0005` were applied outside the CLI ledger. |
+| `0008_atomic_publication.sql` | **Not applied.** No `public.set_content_status` function exists; `published_content` is still the `0004`-era view that joins live `content_media` (media is not frozen at publish time). |
+| `0009_content_releases_api_write_grants.sql` | Not applied, but already effectively true: `anon`/`authenticated` hold only `SELECT`/`REFERENCES`/`TRIGGER` on `content_releases`. |
+| `content_releases` | Table, constraints, indexes and the `active published releases are readable` policy match `0006` on `master`. 31 rows: 29 `challenge` + 2 `referee`, all `published`. |
+| `content_items` | 31 `published`, 1 `draft`, 31 `removed`. Every published item has a published revision (0007 effective). |
+| Read models | `published_content` 31 rows; `published_destination_content` 29 `challenge` + 2 `referee`. |
+| Storage | Bucket `content-media`. |
+
+### Code compatibility with the live schema
+
+- **Production code `823e919`:** compatible (it is serving; `/api/health` returns all checks `ok`).
+- **`master` `b7f3b48`:** schema-compatible only with `CONTENT_SECURE_PUBLISHING` unset/false (with it on, publishing calls the missing `set_content_status` RPC and fails). Contract-incompatible with consumers as described above.
+- **This branch:** schema-compatible with `CONTENT_SECURE_PUBLISHING` unset/false, and with the flag on once `0008` is applied. Its public contract matches Production.
+
+### What applying `0008` would change (owner decision)
+
+1. Creates `public.set_content_status(uuid, text)` (service-role only) that locks the item, writes a revision with a frozen media snapshot, and updates status in one transaction; retries are idempotent.
+2. Backfills a `media` key into the **latest** revision of each item that lacks one, from currently linked media.
+3. Replaces `published_content` so `media` and `challenge_ids` come from the revision snapshot instead of live `content_media`. Media edits after publication no longer appear publicly until republished.
+
+On this branch the legacy publish path (flag off) writes the same media snapshot, so applying `0008` before enabling the flag does not drop media from newly published items. On `master` it would have.
 
 ## Backend and data model
 
 Supabase is the application backend:
 
-- Supabase Postgres stores content, revisions, media metadata, and content-to-media links.
+- Supabase Postgres stores content, revisions, media metadata, content-to-media links, and destination releases.
 - Supabase Auth provides the admin sign-in session.
 - Supabase Storage provides the `content-media` bucket.
-- The `published_content` Postgres view is the published library version of each canonical record.
+- `published_content` is the published library version of each canonical record.
 - `content_releases` records where each canonical record is released (`challenge`, `referee`), with schedule, featured, display order, and history.
-- The `published_destination_content` view combines both and is the public read model used by the versioned API. See [content-releases.md](./content-releases.md).
+- `published_destination_content` joins both and is the public read model used by `/api/v1`. See [content-releases.md](./content-releases.md).
 
-The schema history is in `supabase/migrations/`:
+| Migration | Responsibility | Production |
+| --- | --- | --- |
+| `0001`–`0005` | Content tables, revisions, media storage, published view, asset library metadata | Applied (outside CLI ledger) |
+| `0006_content_releases.sql` | `content_releases`, constraints, RLS, `published_destination_content` | Applied (`20261014111739`) |
+| `0007_backfill_published_revisions.sql` | Revision snapshots for legacy published items | Applied (`20261014111743`) |
+| `0008_atomic_publication.sql` | `set_content_status` RPC, frozen media snapshots | **Not applied** (owner-gated) |
+| `0009_content_releases_api_write_grants.sql` | Encodes the API-role write revokes Production already has | Not applied; no-op on Production (owner-gated) |
 
-| Migration | Current responsibility |
-| --- | --- |
-| `0001_content_platform.sql` | `content_items`, `content_revisions`, `media_assets`, `content_media`, the initial published view, and baseline RLS policies |
-| `0002_admin_content.sql` | `content_items.created_by` |
-| `0003_media_storage.sql` | Public `content-media` bucket, upload ownership, and published-media read policies |
-| `0004_published_snapshot_media_links.sql` | Published fields from the latest revision snapshot and public media URLs |
-| `0005_asset_library_metadata.sql` | Reusable asset-library metadata, tags, archive state, indexes, and constraints |
-| `0006_content_releases.sql` | `content_releases`, destination/status/window constraints, one-open-release-per-destination index, RLS, and the `published_destination_content` view. Creates no releases for existing records |
-
-`0006` exists in the repository only. It has not been applied to any hosted project; see the owner procedure in [supabase.md](./supabase.md#destination-release-migration-0006) and the [destination assignment report](./destination-assignment-report.md).
-
-The repository does not contain a migration-status record for the hosted database. Confirm migration state in the target Supabase project before deployment; this audit did not apply migrations or query production data.
-
-See [schema.md](./schema.md) for the table and view contract, and [supabase.md](./supabase.md) for environment and hosted-project setup.
+See [schema.md](./schema.md) and [supabase.md](./supabase.md).
 
 ## Runtime and security model
 
-The server creates two Supabase clients in `src/lib/supabase.ts`:
+`src/lib/supabase.ts` creates a public client (anon key; published reads and token validation) and a server-only service-role client. `src/lib/admin-auth.ts` authenticates every `/api/admin/*` route through `verifyContentAdmin` before the service-role client is created. With `CONTENT_SECURE_PUBLISHING=true`, admins also need `app_metadata.content_admin === true` and publishing uses the `set_content_status` RPC; with it off, any valid Supabase user passes and publishing uses the legacy two-step path. Release routes use the same gate. See [secure-publishing-rollout.md](./secure-publishing-rollout.md).
 
-- The public client uses `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` for published reads and JWT validation.
-- The admin client uses `SUPABASE_SERVICE_ROLE_KEY` for server-only admin writes, asset queries, and storage operations.
+The `content-media` bucket is public; the API returns absolute URLs rooted at the Supabase project URL. Do not place unpublished or sensitive files in this bucket.
 
-The service-role key must remain server-only. Admin browser pages use the Supabase browser client for password sign-in and pass the resulting bearer token to `/api/admin/*`. The API validates that token before using the server-only client. No middleware or role-specific authorization layer is present; any valid Supabase user token currently passes the application-level admin check.
+## Admin workflow
 
-Public content and media are intentionally readable for the MVP. The `content-media` bucket is public, so the API returns URLs rooted at the Supabase project URL. Do not place unpublished or sensitive files in this bucket.
+Routes: `/admin`, `/admin/records`, `/admin/assets`, `/admin/integrations`, `/admin/status` (renders `/api/health` checks), `/admin/new`, `/admin/:id/edit` (includes **Publishing destinations**), and the unlinked legacy `/admin/content`. See [admin-navigation.md](./admin-navigation.md).
 
-## Admin layout and workflow
-
-`src/app/admin/AdminShell.tsx` supplies the shared admin navigation:
-
-- `/admin` — dashboard
-- `/admin/records` — primary searchable/filterable content records screen
-- `/admin/assets` — reusable asset library
-- `/admin/integrations` — public API consumer guidance
-- `/admin/status` — configuration, database, and storage health checks
-
-The workflow supports:
-
-1. Supabase Auth password sign-in at `/admin/login`.
-2. Draft creation for `tutorial`, `fbc_book`, and `shout_out` records.
-3. Required Shout Out permission confirmation.
-4. Optional media attachment while creating a draft.
-5. Draft editing, plus publishing and unpublishing the library version.
-6. A **Publishing destinations** section on `/admin/:id/edit` to release a record to Challenge, Referee, both, or neither: immediately, on a schedule, permanently or until an end date, with featured and display order, plus per-destination publish, unpublish, archive, and release history.
-7. Reusable asset upload, search, filtering, and attachment to content records.
-
-A record is publicly visible on a destination only when its library version is published **and** it has an active release for that destination. `/admin/records` shows where each record is currently visible and filters by destination.
-
-`/admin/content` remains as a separate, unlinked records screen. It was not removed because an existing bookmark or external link could still depend on it; `/admin/records` is the route linked by the current shell.
+A record is publicly visible on a destination only when its library version is published **and** it has an active release for that destination.
 
 ## Media workflow
 
-There are two current upload paths, both writing to Supabase Storage and then recording metadata in `media_assets` plus a `content_media` link:
-
-- Content creation uses signed uploads: the server validates the content item, approved MIME/extension pairing, and a filename/size up to 500 MB; the browser uploads directly to `content-media`; and the completion route verifies the content-scoped path plus the stored object name, size, and MIME metadata before saving database metadata.
-- Signed content uploads accept only the explicitly mapped GIF, JPEG, PNG, WebP, MP4, MOV, WebM, PDF, Word, Excel, CSV, and plain-text MIME/extension pairs; SVG and generic `application/octet-stream` are rejected.
-- The authenticated asset-library endpoint accepts a multipart upload up to 50 MB, saves it under `library/`, and supports later attachment to content.
-
-The existing dirty media changes were preserved while adding the validation and object-verification contract around them.
-
-See [admin-navigation.md](./admin-navigation.md) for the route map and [operations.md](./operations.md) for the supported operating procedures.
+- Signed uploads (`/media/sign` + `/media/complete`) and direct multipart uploads (`/media`) accept only mapped GIF, JPEG, PNG, WebP, MP4, MOV, WebM, PDF, Word, Excel, CSV and plain-text MIME/extension pairs up to 500 MB, store objects under `<content-id>/<uuid>.<ext>`, and verify the stored object's name, size and MIME type before saving metadata. Vercel's request-body limit still applies to the direct multipart route.
+- The asset-library endpoint accepts multipart uploads up to 50 MB under `library/`.
 
 ## API surface
 
+The public contract is in [contracts/destination-api.md](./contracts/destination-api.md) and [api-v1.md](./api-v1.md).
+
 | Route | Access | Purpose |
 | --- | --- | --- |
-| `GET /api/v1/content` | Public | Paginated content actively released to the required `destination` (`challenge` or `referee`); filters: `type`, `challenge_id`, `page`, `page_size` |
-| `GET /api/v1/content/:id` | Public | One item actively released to the required `destination`, or `404` |
-| `GET /api/health` | Public | No-store configuration, published-view, destination-view, and storage checks; `200` when all pass, otherwise `503` |
-| `GET /api/admin/content/:id/releases` | Supabase bearer token | Release overview, current visibility, and history for one record |
-| `POST /api/admin/content/:id/releases` | Supabase bearer token | Create a draft, immediate, or scheduled release for one destination |
-| `PATCH /api/admin/content/:id/releases/:releaseId` | Supabase bearer token | Edit an open release, or publish, unpublish, or archive it |
-| `POST /api/admin/content` | Supabase bearer token | Create a draft |
-| `GET /api/admin/content` | Supabase bearer token | List content records |
-| `GET /api/admin/content/:id` | Supabase bearer token | Load one admin record |
-| `PATCH /api/admin/content/:id` | Supabase bearer token | Save draft fields or change status |
-| `POST /api/admin/content/:id/media` | Supabase bearer token | Legacy authenticated multipart content upload, up to 500 MB |
-| `POST /api/admin/content/:id/media/sign` | Supabase bearer token | Create a signed upload URL |
-| `POST /api/admin/content/:id/media/complete` | Supabase bearer token | Validate and link a completed signed upload |
-| `GET /api/admin/assets` | Supabase bearer token | Search/filter reusable assets |
-| `POST /api/admin/assets` | Supabase bearer token | Upload a reusable asset, up to 50 MB |
-| `PUT /api/admin/assets` | Supabase bearer token | Link an asset to a content record |
-
-Published API responses are cacheable for 60 seconds with a 300-second stale-while-revalidate window, so a release, unpublish, or expiry can take up to about six minutes to reach consumers through shared caches. Published content fields come from the latest published revision snapshot; media links come from the linked asset records. Each item carries a `release` object for the requested destination. The `destination` parameter is required; see [api-v1.md](./api-v1.md).
+| `GET /api/v1/content?destination=` | Public | Paginated content actively released to `challenge` or `referee` (required); filters `type`, `challenge_id`, `page`, `page_size` |
+| `GET /api/v1/content/:id?destination=` | Public | One item actively released to that destination, or `404` |
+| `GET /api/health` | Public | No-store configuration, published view, destination view and storage checks; `200` only when all pass |
+| `/api/admin/content`, `/api/admin/content/:id` | Content admin | Create, list (with per-destination visibility), read, edit, publish/unpublish |
+| `/api/admin/content/:id/releases`, `/releases/:releaseId` | Content admin | Release overview/history, create, edit, publish, unpublish, archive |
+| `/api/admin/content/:id/media`, `/media/sign`, `/media/complete` | Content admin | Media upload paths |
+| `/api/admin/assets` | Content admin | Asset library search, upload, attach |
 
 ## Consumers
 
-Challenge requests `destination=challenge` and Referee requests `destination=referee`, both through `/api/v1` only. Neither connects to the Content Platform database. Both consumers reject any item whose `release.destination` does not match their own key.
+Challenge (`destination=challenge`) and Referee (`destination=referee`) read only through `/api/v1` and reject any item whose `release.destination` differs from their key. Neither connects to the Content database. Referee's client exists on Referee `main`; page wiring and origin configuration remain open there.
 
-## Deployment files and boundaries
+## Verification on this branch
 
-The app is a Next.js application intended for one Vercel project, with Supabase remaining the database, Auth provider, and storage provider. `next.config.ts` contains the image allowlist and security headers. `.env.example` documents the three required runtime variables. The local `.vercel/` folder is ignored project-link metadata and is not a deployment result.
-
-Deployment preparation and smoke checks are in [deployment.md](./deployment.md). The public contract is in [api-v1.md](./api-v1.md). This audit did not deploy, change DNS, or inspect hosted records.
-
-The local `.vercel/project.json` contains a linked project name and IDs, but it is ignored local metadata. A provider lookup during this audit did not establish a usable hosted project or deployment: the linked project lookup returned `404 not_found`, and the deployment listing returned `403 forbidden`. Hosted deployment state is therefore unknown and must be verified by an authorized owner before release.
-
-`vercel.json` now declares only the repository-owned Next.js build/install contract; project, domain, Root Directory, environment, and deployment ownership remain provider-side responsibilities. The package declares Next.js build, lint, typecheck, and test scripts, but no deployment script.
-
-## Airtable status
-
-Airtable is historical migration input only, not the current application backend. The importer and inventory scripts remain in the repository for an explicitly controlled, optional migration workflow. They are not called by the app, and no import or inventory run was performed during this audit.
-
-See [airtable-import.md](./airtable-import.md) and [migration-inventory.md](./migration-inventory.md) for that historical workflow. Those documents must not be read as evidence that Airtable is a live dependency.
+`npm ci`, `npm run typecheck`, `npm run lint`, `npm test` (including PGlite and disposable local PostgreSQL migration tests) and `npm run build` pass locally. CI (`.github/workflows/ci.yml`) runs the same on pull requests to `master`. Not verified: hosted migrations, Auth sign-in, Storage uploads, or any deployment of this branch. See [testing.md](./testing.md).
 
 ## Known limitations
 
-- Any valid Supabase Auth user passes the admin check. There is no admin role yet.
-- The existing anonymous RLS policy on `content_items` still allows direct Supabase reads of published library versions regardless of destination. The supported consumer path is `/api/v1`; tightening that policy is a recommended follow-up.
-- Saving edits to a published record returns its library version to draft, which hides it on every destination until it is published again. Releases are not changed.
-- Admin state labels (Scheduled, Expired) use the server clock; public visibility uses the database clock. Small clock differences can briefly disagree.
+- With `CONTENT_SECURE_PUBLISHING` off, any valid Supabase Auth user passes the admin check.
+- `npm run lint` uses an ESLint config that does not match `.ts`/`.tsx` files, so it does not lint TypeScript.
+- The anonymous RLS policy on `content_items` still allows direct Supabase reads of published library versions regardless of destination; the supported consumer path is `/api/v1`.
+- Saving edits to a published record returns its library version to draft, hiding it on every destination until republished. Releases are unchanged.
+- Admin state labels use the server clock; public visibility uses the database clock.
 - Public responses are shared-cacheable for up to about six minutes after a release change.
-- Referee has a typed client but no page or environment variable wired to it yet.
-- The local `.env.local` points at the Challenge Supabase project, not a dedicated Content project. See the [assignment report](./destination-assignment-report.md).
-- Hosted migration history is not recorded; `0006` is unapplied, and existing records have no releases until the owner approves the assignment step.
 
-## Working-tree boundary
+## Airtable status
 
-At the audit starting point, `master` was four commits ahead of `origin/master` at `5815249` (`test: harden content API contracts`). The worktree also contained pre-existing uncommitted changes to the root README, the documentation pages, the signed and multipart media routes, and `tests/content-api.test.ts`; an untracked `docs/current-state.md`, `src/lib/media-upload.ts`, and `tsconfig.tsbuildinfo`; and a deleted `work/airtable-inventory.json`. This documentation pass does not reset, stage, commit, restore, or otherwise alter those application, data, generated, or historical-work files.
+Airtable is historical migration input only. The importer and inventory scripts are not called by the app. See [airtable-import.md](./airtable-import.md).
