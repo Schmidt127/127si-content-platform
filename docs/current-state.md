@@ -104,7 +104,7 @@ Challenge (`destination=challenge`) and Referee (`destination=referee`) read onl
 ## Known limitations
 
 - With `CONTENT_SECURE_PUBLISHING` off, any valid Supabase Auth user passes the admin check.
-- `npm run lint` uses an ESLint config that does not match `.ts`/`.tsx` files, so it does not lint TypeScript.
+- `npm run lint` checks TypeScript/TSX with the Next.js and TypeScript rules. Existing typing, image and hook warnings remain visible; they are not a claim of full UI acceptance.
 - The anonymous RLS policy on `content_items` still allows direct Supabase reads of published library versions regardless of destination; the supported consumer path is `/api/v1`.
 - Saving edits to a published record returns its library version to draft, hiding it on every destination until republished. Releases are unchanged.
 - Admin state labels use the server clock; public visibility uses the database clock.
