@@ -1,4 +1,6 @@
-# Airtable Migration Inventory
+# Historical Airtable Migration Inventory
+
+Airtable is historical source material only. The running Content Platform uses Supabase; this inventory describes a controlled migration option and does not describe a live application dependency.
 
 ## Source
 

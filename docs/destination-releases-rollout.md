@@ -2,7 +2,9 @@
 
 Cross-platform coordination item **6**: consumers send `destination` first, merge the reconciled `0006_content_releases.sql`, deploy the Content API that filters on `destination_key`, then require `destination` on `/api/v1/content` only after consumers are live.
 
-**Owner:** Mike (approved plan). **Agents:** merge PRs after required checks pass; never apply Production migrations, assign destination releases, or flip `CONTENT_V1_REQUIRE_DESTINATION` in Production.
+**Owner:** Mike (approved plan). **Agents:** merge PRs after required checks pass; never apply Production migrations or assign destination releases in Production.
+
+> **2026-10-15:** Rollout complete in Production (destination required, 29 Challenge + 2 Referee releases). `CONTENT_V1_REQUIRE_DESTINATION` has been removed from the code on `swarm/content-destination-reconcile`: `destination` is now always required, matching Production. References to the flag below are historical. Current contract: [contracts/destination-api.md](./contracts/destination-api.md).
 
 ## Production schema (canonical)
 
