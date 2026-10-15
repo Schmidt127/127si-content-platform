@@ -28,9 +28,10 @@ export function supabaseReleaseStore(client: SupabaseClient): ReleaseStore {
       const { data, error } = await client.from("content_releases").insert({ ...insert, content_item_id: contentItemId, created_by: userId, updated_by: userId }).select(RELEASE_COLUMNS).single();
       return error || !data ? { ok: false, conflict: isUniqueViolation(error) } : { ok: true, release: data as ContentRelease };
     },
-    async updateRelease(contentItemId, releaseId, patch, userId) {
-      const { data, error } = await client.from("content_releases").update({ ...patch, updated_by: userId }).eq("id", releaseId).eq("content_item_id", contentItemId).select(RELEASE_COLUMNS).single();
-      return error || !data ? { ok: false, conflict: isUniqueViolation(error) } : { ok: true, release: data as ContentRelease };
+    async updateRelease(contentItemId, releaseId, patch, userId, expectedStatus) {
+      const { data, error } = await client.from("content_releases").update({ ...patch, updated_by: userId }).eq("id", releaseId).eq("content_item_id", contentItemId).eq("status", expectedStatus).select(RELEASE_COLUMNS).maybeSingle();
+      if (error) return { ok: false, conflict: isUniqueViolation(error) };
+      return !data ? { ok: false, conflict: false, stale: true } : { ok: true, release: data as ContentRelease };
     },
   };
 }
