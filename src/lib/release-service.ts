@@ -5,7 +5,7 @@ export type ReleaseStore = {
   libraryVersionPublished(contentItemId: string): Promise<boolean>;
   listReleases(contentItemId: string): Promise<ContentRelease[]>;
   insertRelease(contentItemId: string, insert: ReleaseInsert, userId: string): Promise<{ ok: true; release: ContentRelease } | { ok: false; conflict: boolean }>;
-  updateRelease(contentItemId: string, releaseId: string, patch: ReleasePatch, userId: string): Promise<{ ok: true; release: ContentRelease } | { ok: false; conflict: boolean }>;
+  updateRelease(contentItemId: string, releaseId: string, patch: ReleasePatch, userId: string, expectedStatus: ContentRelease["status"]): Promise<{ ok: true; release: ContentRelease } | { ok: false; conflict: boolean; stale?: boolean }>;
 };
 
 export type ServiceResult = { status: number; body: Record<string, unknown> };
@@ -46,7 +46,10 @@ export async function updateRelease(store: ReleaseStore, contentItemId: string, 
   if (!current) return { status: 404, body: { error: "Release not found" } };
   const plan = planReleaseUpdate(current, body, now);
   if (!plan.ok) return { status: plan.status, body: { error: plan.error } };
-  const saved = await store.updateRelease(contentItemId, releaseId, plan.value, userId);
+  // A close action may have committed after this request read the release.
+  // Match the planned status in the write so stale requests cannot reopen history.
+  const saved = await store.updateRelease(contentItemId, releaseId, plan.value, userId, current.status);
+  if (!saved.ok && saved.stale) return { status: 409, body: { error: "This release changed while you were editing. Refresh and try again." } };
   if (!saved.ok) return saved.conflict ? CONFLICT : { status: 500, body: { error: "Unable to update release" } };
   return { status: 200, body: { data: withState(saved.release, now) } };
 }
