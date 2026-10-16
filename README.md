@@ -4,7 +4,7 @@ Central content service for 127SI Tutorials, FBC Book readings, and athlete Shou
 
 ## Status
 
-The MVP admin, publishing workflow, per-destination releases, Supabase media paths, health checks, and public v1 API are implemented. `master` is the canonical branch (the GitHub default branch `127-si-shooting-challenge` is an unrelated README stub). Production applies migrations `0006` and `0007`, not `0008`/`0009`, and currently serves a CLI deploy of an unpushed branch rather than `master`; see [current state](docs/current-state.md) and the [destination API contract](docs/contracts/destination-api.md).
+The MVP admin, publishing workflow, per-destination releases, Supabase media paths, health checks, and public v1 API are implemented. `master` is the canonical branch and is now also the GitHub default branch (verified October 16, 2026; current `master` head `e8827332`). The October 15 Production deployment and migration observations are historical; the latest Vercel project record available on October 16 reports a READY deployment but does not expose enough detail to confirm its target or source commit. See the dated [current-state checkpoint](docs/current-state.md) and the [destination API contract](docs/contracts/destination-api.md).
 
 Start with the [current-state documentation](docs/current-state.md), then use the [deployment checklist](docs/deployment.md).
 
