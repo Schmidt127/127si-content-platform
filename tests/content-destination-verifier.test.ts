@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseArguments, verifyContentApi } from '../scripts/verify-content-api-destinations.mjs';
 
-function mockFetch(change = (_destination: string, body: any): any => body, unscoped = 400) {
+function mockFetch(change: (_destination: string, body: Record<string, unknown>) => Record<string, unknown> = (_destination, body) => body, unscoped = 400) {
   const calls: URL[] = [];
   const fetchImpl = async (input: URL, init: RequestInit) => {
     calls.push(input);

@@ -1,9 +1,25 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createRelease, listReleaseOverview, updateRelease } from "../src/lib/release-service.ts";
-import { toPublicDestinationItem, type DestinationContentRow } from "../src/lib/content-releases.ts";
+import { toPublicDestinationItem, type ContentRelease, type Destination, type DestinationContentRow, type ReleaseState } from "../src/lib/content-releases.ts";
+import type { ServiceResult } from "../src/lib/release-service.ts";
 import { createMigratedDatabase } from "./support/migrated-database.ts";
 import { ADMIN_USER_ID, attachMedia, createCanonical, pgliteReleaseStore, publicContent, publicTitles, publishLibraryVersion, seedAdminUser } from "./support/content-fixtures.ts";
+
+type ReleasePayload = ContentRelease & { state: ReleaseState };
+type ReleaseOverviewPayload = {
+  library_version_published: boolean;
+  visible_on: Destination[];
+  releases: ReleasePayload[];
+};
+
+function releaseData(result: ServiceResult): ReleasePayload {
+  return result.body.data as ReleasePayload;
+}
+
+function overviewData(result: ServiceResult): ReleaseOverviewPayload {
+  return result.body.data as ReleaseOverviewPayload;
+}
 
 // Acceptance flow through the admin release service against the real migrated
 // schema, reading public results the way the API does (anonymous role, view).
@@ -24,7 +40,7 @@ test("acceptance: one canonical Shooting Technique Video released per destinatio
   // 2-3. Permanent Challenge release only.
   const challenge = await createRelease(store, video, { destination_key: "challenge", publish: "now" }, ADMIN_USER_ID, new Date());
   assert.equal(challenge.status, 201);
-  assert.equal((challenge.body.data as any).ends_at, null, "permanent release");
+  assert.equal(releaseData(challenge).ends_at, null, "permanent release");
 
   // 4-5. Challenge shows the video, with its release metadata and shared media.
   const challengeRows = await publicContent(db, "challenge");
@@ -49,7 +65,7 @@ test("acceptance: one canonical Shooting Technique Video released per destinatio
   assert.equal(duplicate.status, 409);
 
   // 10-11. Remove the Referee release: gone from Referee, still on Challenge.
-  const refereeId = (referee.body.data as any).id as string;
+  const refereeId = releaseData(referee).id;
   const removed = await updateRelease(store, video, refereeId, { action: "unpublish" }, ADMIN_USER_ID, new Date());
   assert.equal(removed.status, 200);
   assert.deepEqual(await publicTitles(db, "referee"), []);
@@ -57,9 +73,9 @@ test("acceptance: one canonical Shooting Technique Video released per destinatio
 
   // Release history is retained and the overview reports current visibility.
   const overview = await listReleaseOverview(store, video, new Date());
-  const data = overview.body.data as any;
+  const data = overviewData(overview);
   assert.deepEqual(data.visible_on, ["challenge"]);
-  assert.deepEqual(data.releases.map((r: any) => `${r.destination_key}:${r.state}`).sort(), ["challenge:published", "referee:unpublished"]);
+  assert.deepEqual(data.releases.map((r) => `${r.destination_key}:${r.state}`).sort(), ["challenge:published", "referee:unpublished"]);
   assert.equal((await db.query("select * from content_items where id = $1", [video])).rows.length, 1, "canonical record kept");
 
   // 12. The draft record appears nowhere, even if a release is attempted.
@@ -67,7 +83,7 @@ test("acceptance: one canonical Shooting Technique Video released per destinatio
   assert.equal(draftRelease.status, 201);
   assert.deepEqual(await publicTitles(db, "challenge"), ["Shooting Technique Video"]);
   assert.deepEqual(await publicTitles(db, "referee"), []);
-  const draftOverview = (await listReleaseOverview(store, draft, new Date())).body.data as any;
+  const draftOverview = overviewData(await listReleaseOverview(store, draft, new Date()));
   assert.equal(draftOverview.library_version_published, false);
   assert.deepEqual(draftOverview.visible_on, []);
 });
@@ -80,10 +96,10 @@ test("acceptance: scheduled, expiring, and archived releases through the service
   const now = new Date();
 
   const scheduled = await createRelease(store, id, { destination_key: "referee", publish: "schedule", starts_at: new Date(now.getTime() + 86400_000).toISOString() }, ADMIN_USER_ID, now);
-  assert.equal((scheduled.body.data as any).state, "scheduled");
+  assert.equal(releaseData(scheduled).state, "scheduled");
   assert.deepEqual(await publicTitles(db, "referee"), [], "not visible before start");
 
-  const releaseId = (scheduled.body.data as any).id as string;
+  const releaseId = releaseData(scheduled).id;
   const startNow = await updateRelease(store, id, releaseId, { starts_at: new Date(now.getTime() - 1000).toISOString(), ends_at: new Date(now.getTime() + 3600_000).toISOString() }, ADMIN_USER_ID, now);
   assert.equal(startNow.status, 200);
   assert.deepEqual(await publicTitles(db, "referee"), ["Clinic Promo"], "visible inside a temporary window");
@@ -92,7 +108,7 @@ test("acceptance: scheduled, expiring, and archived releases through the service
   assert.deepEqual(await publicTitles(db, "referee"), [], "expired");
 
   const archived = await updateRelease(store, id, releaseId, { action: "archive" }, ADMIN_USER_ID, new Date());
-  assert.equal((archived.body.data as any).state, "archived");
+  assert.equal(releaseData(archived).state, "archived");
   const reopened = await updateRelease(store, id, releaseId, { action: "publish" }, ADMIN_USER_ID, new Date());
   assert.equal(reopened.status, 409, "archived releases are closed history");
 

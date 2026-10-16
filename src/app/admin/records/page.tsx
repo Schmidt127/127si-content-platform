@@ -1,13 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { getBrowserSession } from "@/lib/supabase-browser";
 import { DESTINATIONS, DESTINATION_LABELS, RELEASE_STATE_LABELS, type Destination, type ReleaseState } from "@/lib/content-releases";
 import { AdminShell } from "../AdminShell";
 type Item = { id:string; content_type:string; title:string; status:string; visibility?:string; created_at?:string; visible_on?:Destination[]; open_releases?:Array<{ destination_key:Destination; state:ReleaseState }> };
 const destinationFilters = ["any", "challenge", "referee", "none"] as const;
 export default function RecordsPage() { const [items,setItems]=useState<Item[]>([]); const [filter,setFilter]=useState("all"); const [destination,setDestination]=useState<(typeof destinationFilters)[number]>("any");
- useEffect(()=>{(async()=>{const {data}=await (getSupabaseBrowser().auth as any).getSession(); if(!data.session){window.location.href="/admin/login";return;} const r=await fetch("/api/admin/content",{headers:{Authorization:`Bearer ${data.session.access_token}`}}); const j=await r.json();setItems(j.data??[]);})();},[]);
+ useEffect(()=>{(async()=>{const session=await getBrowserSession(); if(!session){window.location.href="/admin/login";return;} const r=await fetch("/api/admin/content",{headers:{Authorization:`Bearer ${session.access_token}`}}); const j=await r.json();setItems(j.data??[]);})();},[]);
  const shown=items.filter(i=>(filter==="all"||i.status===filter)&&(destination==="any"||(destination==="none"?!(i.visible_on??[]).length:(i.visible_on??[]).includes(destination))));
  const visibility=(i:Item)=>(i.visible_on??[]).length?`Visible on ${(i.visible_on??[]).map(d=>DESTINATION_LABELS[d]).join(" and ")}`:"Not visible on any destination";
  const releases=(i:Item)=>DESTINATIONS.map(d=>{const open=(i.open_releases??[]).find(r=>r.destination_key===d);return open?`${DESTINATION_LABELS[d]}: ${RELEASE_STATE_LABELS[open.state]}`:null;}).filter(Boolean).join(" · ");

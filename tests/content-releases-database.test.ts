@@ -65,7 +65,7 @@ test("only one open release per record and destination; closed releases remain a
   await db.query("update content_releases set status = 'unpublished', unpublished_at = now() where id = $1", [first]);
   await release(db, id, "challenge");
   const history = await db.query("select status from content_releases where content_item_id = $1 and destination_key = 'challenge' order by created_at", [id]);
-  assert.deepEqual(history.rows.map((row: any) => row.status).sort(), ["published", "unpublished"]);
+  assert.deepEqual(history.rows.map((row: { status: string }) => row.status).sort(), ["published", "unpublished"]);
 });
 
 test("canonical records cannot be deleted while release history exists", async () => {
@@ -155,6 +155,19 @@ test("anonymous and authenticated API roles cannot write releases", async () => 
     await rejects(asRole(db, role, () => db.query("update content_releases set featured = true where id = $1", [existing])), /permission denied/);
     await rejects(asRole(db, role, () => db.query("delete from content_releases where id = $1", [existing])), /permission denied/);
   }
+});
+
+test("anonymous direct reads on content_items require an active destination release", async () => {
+  const db = await createMigratedDatabase();
+  const released = await createCanonical(db, { title: "Released on Challenge" });
+  await createCanonical(db, { title: "Published without release" });
+  await release(db, released, "challenge");
+  const visible = await asRole(db, "anon", () => db.query<{ title: string }>("select title from content_items order by title"));
+  assert.deepEqual(visible.rows.map((row) => row.title), ["Released on Challenge"]);
+  const hidden = await asRole(db, "anon", () => db.query("select 1 from content_items where title = $1", ["Published without release"]));
+  assert.equal(hidden.rows.length, 0);
+  assert.deepEqual(await publicTitles(db, "challenge"), ["Released on Challenge"]);
+  assert.equal((await db.query<{ n: number }>("select count(*)::int as n from content_items where status = 'published'")).rows[0].n, 2);
 });
 
 test("public roles read only active published releases from the release table", async () => {

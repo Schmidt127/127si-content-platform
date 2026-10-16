@@ -66,6 +66,20 @@ Applied to Production on 2026-10-14 (`20261014111739`); the procedure below is r
 
 Rollback (only after reverting the application deploy, since the new app requires these objects): export release history if needed (`copy (select * from public.content_releases) to stdout with csv header;`), then `drop view if exists public.published_destination_content;` and `drop table if exists public.content_releases;`. These statements touch no content, revision, media, or Storage data. The same steps are in the migration file header.
 
+## Destination-aware `content_items` RLS (0011)
+
+**Not applied to Production by agents.** Owner-controlled. Run after `0010_public_views_security_invoker.sql` when ready.
+
+1. **Confirm the target.** Project `oqnnvmxjdersgcguhvsc` (Content Production).
+2. **Pre-check (read-only).** As role `anon`, `select count(*) from public.content_items where status = 'published';` may exceed the count of active destination releases. That gap is what this migration closes.
+3. **Apply.** Paste and run `supabase/migrations/0011_content_items_destination_rls.sql` once in the SQL editor (idempotent).
+4. **Verify (read-only).**
+   - `select policyname from pg_policies where tablename = 'content_items' and cmd = 'SELECT';` includes `published content with active release is readable`.
+   - As role `anon`, direct `select id from public.content_items` returns only rows with an active published release; `/api/v1` destination counts (Challenge / Referee) are unchanged.
+5. **Record** apply time in [current-state.md](./current-state.md).
+
+Rollback: `drop policy if exists "published content with active release is readable" on public.content_items;` then recreate the legacy policy from `0001_content_platform.sql` if needed.
+
 ## Security boundaries
 
 - Do not use user-editable metadata as an authorization claim. With `CONTENT_SECURE_PUBLISHING` off, admin routes authorize by token validity only; with it on, they require server-owned `app_metadata.content_admin`.

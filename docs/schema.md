@@ -17,6 +17,8 @@ Apply migrations in filename order. The application requires `0001`–`0007`; `0
 | `0007_backfill_published_revisions.sql` | Inserts a revision snapshot for published items that had none, so they appear in the published views. |
 | `0008_atomic_publication.sql` | Adds the service-role-only `set_content_status(uuid, text)` RPC (locked, idempotent, one transaction), backfills a media snapshot into each item's latest revision, and makes `published_content` read `media`/`challenge_ids` from the revision snapshot. |
 | `0009_content_releases_api_write_grants.sql` | Revokes insert/update/delete/truncate on `content_releases` from `anon`/`authenticated` (already true in Production) and grants read on the release table and destination view. |
+| `0010_public_views_security_invoker.sql` | Sets `security_invoker = true` on `published_content` and `published_destination_content` so public reads honor underlying RLS. |
+| `0011_content_items_destination_rls.sql` | Replaces the broad published-row policy on `content_items` with one that requires an active destination release (matches `content_releases` visibility). Owner applies to Production separately. |
 
 The application does not apply migrations automatically. Run and verify them in the target Supabase project as a release prerequisite.
 
@@ -76,7 +78,7 @@ The application expands that relative URL with `NEXT_PUBLIC_SUPABASE_URL` before
 - The `content-media` bucket is public for delivery. Do not store unpublished or sensitive media there.
 - RLS policies in the migrations cover published reads. Service-role operations bypass RLS by design.
 - `content_releases` has RLS with a single `select` policy for `anon` and `authenticated` limited to active published releases. It has no write policies, and the migration revokes insert, update, delete, and truncate from those roles, so only the server-side service role can write releases.
-- The existing `content_items` policy still lets the public key read published library records directly, regardless of destination. Consumers must use `/api/v1`; tightening direct table reads is a recommended follow-up (see [current-state.md](./current-state.md#known-limitations)).
+- After migration `0011`, the public key may `SELECT` from `content_items` only when the row is published **and** has at least one active destination release (same schedule window as `content_releases`). Until Production applies `0011`, the legacy policy still allows any published library row. Consumers must use `/api/v1`.
 - There is no application-level admin role or allowlist yet: any valid Supabase user token currently passes the admin check.
 
 For setup and credential boundaries, see [supabase.md](./supabase.md). For the public shape, see [api-v1.md](./api-v1.md).
