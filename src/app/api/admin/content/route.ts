@@ -52,14 +52,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: failure.error }, { status: failure.status });
   }
   const now = new Date();
-  const libraryPublished = new Set((published ?? []).map((row) => row.id as string));
-  const records = (data ?? []).map(({ content_releases, ...item }) => {
-    const releases = (content_releases ?? []) as Array<ReleaseWindow & { destination_key: Destination }>;
+  const libraryPublished = new Set((published ?? []).map((row: { id: string }) => row.id));
+  const records = (data ?? []).map((row: Record<string, unknown> & { content_releases?: Array<ReleaseWindow & { destination_key: Destination }> }) => {
+    const { content_releases, ...item } = row;
     return {
       ...item,
-      library_version_published: libraryPublished.has(item.id),
-      visible_on: visibleDestinations(libraryPublished.has(item.id), releases, now),
-      open_releases: releases.filter(isOpenRelease).map((release) => ({ destination_key: release.destination_key, state: releaseState(release, now) })),
+      library_version_published: libraryPublished.has(item.id as string),
+      visible_on: visibleDestinations(libraryPublished.has(item.id as string), content_releases ?? [], now),
+      open_releases: (content_releases ?? []).filter(isOpenRelease).map((release) => ({ destination_key: release.destination_key, state: releaseState(release, now) })),
     };
   });
   return NextResponse.json({ data: records });
