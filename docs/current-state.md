@@ -1,10 +1,12 @@
 # Content Platform current state
 
-This is the repository-level source of truth for the Content Platform. It separates what is **implemented** on this branch, what is **tested**, what is **merged** on GitHub, and what is **deployed** to Production. Those are not the same thing today; see [Repository identity and Production divergence](#repository-identity-and-production-divergence).
+This is the repository-level source of truth for the Content Platform. It separates what is **implemented** on this branch, what is **tested**, what is **merged** on GitHub, and what is **deployed** to Production. Those are not the same thing today; see [historical repository identity and Production divergence](#historical-repository-identity-and-production-divergence).
 
-Reconciled: 2026-10-15 on branch `swarm/content-destination-reconcile` (based on `origin/master` `b7f3b48`). Production facts below come from read-only SQL against Supabase `oqnnvmxjdersgcguhvsc` and read-only `GET` requests to `https://content.fairfieldbasketballclub.com` on 2026-10-15. Nothing hosted was changed.
+Historical reconciliation: 2026-10-15 on branch `swarm/content-destination-reconcile` (based on `origin/master` `b7f3b48`). Production facts in the historical section below came from read-only SQL against Supabase `oqnnvmxjdersgcguhvsc` and read-only `GET` requests to `https://content.fairfieldbasketballclub.com` on 2026-10-15. Nothing hosted was changed.
 
-## Repository identity and Production divergence
+> **Current checkpoint — October 16, 2026:** GitHub repository metadata reports `master` as the default branch, with current head `e8827332d7659d78623d1c74a9ebab0ba73dc538`. This supersedes the October 15 statement that the default branch was `127-si-shooting-challenge`. Vercel project metadata reports a latest deployment in `READY` state, but its target is null and the available response does not identify a source branch or commit. The current Production deployment and its source commit therefore remain unverified; the October 15 database and served-deployment observations below are historical, not current acceptance. No Vercel settings, migrations, or hosted data were changed.
+
+## Historical repository identity and Production divergence (verified 2026-10-15)
 
 | Fact | Evidence (2026-10-15) |
 | --- | --- |
