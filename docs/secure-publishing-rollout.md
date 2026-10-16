@@ -4,7 +4,7 @@ Code on `master` ships **scoped admin + atomic publish behind `CONTENT_SECURE_PU
 
 No hosted migration, account-role assignment, deployment, storage visibility change, or branch administration was performed by agents.
 
-As of 2026-10-15, `0008` is **not** applied in Production (no `set_content_status` function). After `0008`, `published_content` reads media only from the revision snapshot; the legacy publish path writes the same media snapshot (since `swarm/content-destination-reconcile`), so applying `0008` before enabling the flag no longer drops media from newly published items. Release routes use the same `content_admin` gate when the flag is on.
+As of **2026-10-16**, migrations **`0008`** (`20261016171123 atomic_publication`) and **`0009`** (`20261016171128 content_releases_api_write_grants`) are **applied** in Production (`oqnnvmxjdersgcguhvsc`). `public.set_content_status` exists and is executable only by `service_role`. `published_content` reads media only from the revision snapshot; the legacy publish path (flag off) writes the same media snapshot, so applying `0008` before enabling the flag did not drop media from published items (31 revisions now carry a `media` snapshot; table row counts unchanged). **`CONTENT_SECURE_PUBLISHING` is not yet enabled** — assign `app_metadata.content_admin` first, then set the flag on Vercel. Release routes use the same `content_admin` gate when the flag is on.
 
 ## Rollout flag
 
@@ -26,13 +26,9 @@ Do these **before** setting `CONTENT_SECURE_PUBLISHING=true` in Production.
 6. Click **Save**.
 7. Repeat for every admin account.
 
-### 2. Apply migration `0008_atomic_publication.sql`
+### 2. Apply migration `0008_atomic_publication.sql` — **done in Production (2026-10-16)**
 
-1. In Supabase Dashboard → **SQL Editor** → **New query**.
-2. Open `supabase/migrations/0008_atomic_publication.sql` from this repo (on `master`).
-3. Paste the full file into the editor.
-4. Run against **staging** first; run `npm test` with `CONTENT_TEST_DATABASE_URL` pointed at staging if available.
-5. When staging looks good, run the same SQL in **Production** (one transaction; do not re-run `0006` or `0007`).
+Production ledger: `20261016171123 atomic_publication` plus `20261016171128 content_releases_api_write_grants` (`0009`). Do not re-run `0006`–`0009` on Production. For new environments, apply every file in `supabase/migrations/` in order through `0009`.
 
 ### 3. Enable scoped admin + atomic publish (Vercel)
 
@@ -47,7 +43,7 @@ Every content and asset admin API requires a freshly verified Supabase user with
 
 ## Migration and publishing prerequisite
 
-Apply `0008_atomic_publication.sql` in a reviewed staging rollout before the new app version. Slots `0006_content_releases.sql` and `0007_backfill_published_revisions.sql` are already on `master` and applied in Production; this migration must not reuse those numbers.
+Migrations `0006`–`0009` are on `master` and applied in Production (2026-10-16 for `0008`/`0009`). Do not rename migration files or reuse slot numbers.
 
 The service-role-only, SECURITY INVOKER RPC locks the content item and commits its revision, content/media snapshot, status, and timestamps in one transaction. Failure rolls back everything. Concurrent duplicate publish calls serialize and create one revision. Shout Outs require permission confirmation at publication as well as at editing.
 

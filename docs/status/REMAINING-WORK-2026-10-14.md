@@ -17,7 +17,7 @@
 
 | Check | Result |
 |-------|--------|
-| Applied migrations (Supabase history) | `content_releases`, `backfill_published_revisions` |
+| Applied migrations (Supabase history) | `content_releases`, `backfill_published_revisions`, `atomic_publication` (2026-10-16), `content_releases_api_write_grants` (2026-10-16) |
 | `published_content` rows | **31** |
 | `published_destination_content` rows | **31** (29 `challenge`, 2 `referee`) |
 | Live API `GET …/api/v1/content?destination=challenge&page_size=50` | **200**, `pagination.total` **29** |
@@ -50,7 +50,7 @@ Each item includes a one-line **why**.
 | A1 | ~~Fix admin System status~~ — **PR #7**; `/admin/status` probes `/api/health`. | Admins no longer see false “API down” when destination is required. |
 | A2 | ~~Add `/api/health`~~ — **PR #7**; configured + `published_content` count, no destination. | Ops UI decoupled from consumer query params. |
 | A3 | ~~`scripts/verify-content-api-destinations.mjs`~~ — **PR #7** + **PR #9** (combined 31 = 29+2). | Repeatable pre/post-deploy verification. |
-| A4 | ~~**Resolve PR #1**~~ — merged as **PR #8** (`0008_atomic_publication.sql`); **PR #1** closed in favor of #8; **`CONTENT_SECURE_PUBLISHING`** defaults off so deploy does not lock admins. | Slot `0006`/`0007` are taken in Production; flag gates scoped admin until owner assigns roles + applies 0008. |
+| A4 | ~~**Resolve PR #1**~~ — merged as **PR #8** (`0008_atomic_publication.sql`); **PR #1** closed in favor of #8; **`CONTENT_SECURE_PUBLISHING`** defaults off so deploy does not lock admins. | Slot `0006`/`0007` are taken in Production; `0008`/`0009` applied 2026-10-16; flag gates scoped admin until owner assigns `content_admin`. |
 | A5 | ~~Wire admin routes to `set_content_status` + scoped checks~~ — behind **`CONTENT_SECURE_PUBLISHING=true`** (same flag as A4 gate). | Prevents forged metadata publish when owner enables hardening. |
 | A6 | **Consumer repos (outside this workspace):** Challenge + Referee must send `?destination=` on all v1 reads. | Required destination is already on in Production; clients without the param get **400**. |
 | A7 | **Deploy latest `master` to Vercel** after A1–A2 merge. | Production error text may differ from repo until the current build is promoted. |
@@ -67,7 +67,7 @@ Each item includes a one-line **why**.
 | B3 | **Referee (`127-si-jr-ref`):** same with `destination=referee`. | Referee catalog is only 2 items today; without the param the app cannot load them. |
 | B4 | **Confirm Vercel Production env:** `CONTENT_V1_REQUIRE_DESTINATION=true` only after B2–B3 are live (already appears true — verify consumer apps before changing). | Avoids locking out apps that still omit `destination`. |
 | B5 | **Before `CONTENT_SECURE_PUBLISHING=true`:** assign Supabase Auth **`app_metadata.content_admin`** for each admin (see [`secure-publishing-rollout.md`](../secure-publishing-rollout.md)). | Scoped gate returns **403** without the claim when the flag is on. |
-| B6 | **Before the flag:** run `0008_atomic_publication.sql` in **staging → Production** (owner SQL/CLI); do not duplicate `0006`/`0007`. | Installs atomic publish RPC; required for RPC path when flag is on. |
+| B6 | ~~**Before the flag:** run `0008_atomic_publication.sql` in **staging → Production**~~ — **done 2026-10-16** (`20261016171123` + `0009` `20261016171128` on `oqnnvmxjdersgcguhvsc`; counts unchanged; 31 revisions with media snapshot). | Atomic publish RPC installed; required for RPC path when flag is on. |
 | B7 | **Review Production `content_releases` assignments** when adding items (SQL/admin); agents must not bulk-edit Production releases. | Wrong `destination_key` ships content to the wrong app. |
 | B8 | **DNS / Vercel smoke** per [`docs/deployment.md`](../deployment.md) after deploys. | Confirms custom domain and env vars match the tested build. |
 

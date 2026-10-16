@@ -44,7 +44,7 @@ The public API returns URLs for this bucket. The content creation screen uses a 
 
 For a new project, apply every file in `supabase/migrations/` in order, then verify the `published_content` and `published_destination_content` views and the `content-media` bucket. The app's `/api/health` check confirms configuration, both views, and Storage bucket reachability; it does not report migration versions.
 
-The hosted Content project is `127SI Content Platform` (`oqnnvmxjdersgcguhvsc`). Its tables matched `0001`–`0005` on 2026-10-13 with an empty migration history (applied outside the CLI ledger). On 2026-10-15 its history records `20261014111739 content_releases` (`0006`) and `20261014111743 backfill_published_revisions` (`0007`). `0008_atomic_publication.sql` and `0009_content_releases_api_write_grants.sql` are not applied; both are owner-gated. See [current-state.md](./current-state.md#production-database-verified-read-only).
+The hosted Content project is `127SI Content Platform` (`oqnnvmxjdersgcguhvsc`). Its tables matched `0001`–`0005` on 2026-10-13 with an empty migration history (applied outside the CLI ledger). Supabase migration history now records `20261014111739 content_releases` (`0006`), `20261014111743 backfill_published_revisions` (`0007`), `20261016171123 atomic_publication` (`0008`), and `20261016171128 content_releases_api_write_grants` (`0009`). `public.set_content_status` is installed and executable only by `service_role`. **`CONTENT_SECURE_PUBLISHING` is not enabled** on Vercel until the owner assigns `app_metadata.content_admin` and sets the flag. See [current-state.md](./current-state.md#production-database-verified-read-only).
 
 For the exact tables, policies, and view behavior, see [schema.md](./schema.md).
 

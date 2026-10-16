@@ -4,7 +4,9 @@ This is the repository-level source of truth for the Content Platform. It separa
 
 Historical reconciliation: 2026-10-15 on branch `swarm/content-destination-reconcile` (based on `origin/master` `b7f3b48`). Production facts in the historical section below came from read-only SQL against Supabase `oqnnvmxjdersgcguhvsc` and read-only `GET` requests to `https://content.fairfieldbasketballclub.com` on 2026-10-15. Nothing hosted was changed.
 
-> **Post-merge Production checkpoint — October 16, 2026 (read-only):** GitHub metadata reports `master` at merged commit `976bfd8c1230ac7a05ba61ea6ce3cc50009882cd` (PR #19). Vercel reports Production deployment `dpl_64m3GURiwCUz82bHrhvWqXSWduYQ`, **READY**, from `master` at that commit (created 11:31:27 UTC). At 11:33:31 UTC, I reran read-only checks against the Production hostname: `/api/health` returned HTTP 200 with all four checks `ok`, and `node scripts/verify-content-api-destinations.mjs https://content.fairfieldbasketballclub.com --expected-challenge=29 --expected-referee=2` passed (Challenge 29, Referee 2, unscoped list 400). The prior pre-merge deployment/checkpoint below is retained as dated evidence. The Production database facts below remain an October 15 read-only snapshot and were not rechecked after this deploy. No Vercel settings, migrations, database, or hosted content were changed.
+> **Post-merge Production checkpoint — October 16, 2026 (read-only):** GitHub metadata reports `master` at merged commit `976bfd8c1230ac7a05ba61ea6ce3cc50009882cd` (PR #19). Vercel reports Production deployment `dpl_64m3GURiwCUz82bHrhvWqXSWduYQ`, **READY**, from `master` at that commit (created 11:31:27 UTC). At 11:33:31 UTC, I reran read-only checks against the Production hostname: `/api/health` returned HTTP 200 with all four checks `ok`, and `node scripts/verify-content-api-destinations.mjs https://content.fairfieldbasketballclub.com --expected-challenge=29 --expected-referee=2` passed (Challenge 29, Referee 2, unscoped list 400). The prior pre-merge deployment/checkpoint below is retained as dated evidence. No Vercel settings or hosted content were changed in that checkpoint.
+>
+> **Production migrations — October 16, 2026:** Owner applied `0008_atomic_publication.sql` and `0009_content_releases_api_write_grants.sql` to Content Production Supabase `oqnnvmxjdersgcguhvsc`. Supabase migration history now records `20261014111739 content_releases`, `20261014111743 backfill_published_revisions`, `20261016171123 atomic_publication`, and `20261016171128 content_releases_api_write_grants` (migrations `0001`–`0005` remain applied outside the CLI ledger). Table counts before and after were unchanged: `content_items` 63, `content_revisions` 31, `content_media` 2, `published_content` 31; revisions with a `media` snapshot key went from **0** to **31**. Public API counts stayed Challenge **29** / Referee **2**. `public.set_content_status` is present and executable only by `service_role`. **`CONTENT_SECURE_PUBLISHING` is not enabled** on Vercel; next owner steps are `app_metadata.content_admin` for each admin, then set the flag (see [secure-publishing-rollout.md](./secure-publishing-rollout.md)).
 
 > **Pre-merge checkpoint — October 16, 2026 11:26 UTC (read-only):** GitHub metadata reports `master` as the default branch at `e8827332d7659d78623d1c74a9ebab0ba73dc538`. Vercel reports Production deployment `dpl_E5YSVqKb24YXFNQSHcTQAPjv1gn1`, **READY**, from `master` at that commit (created 2026-10-15 21:34:29 UTC). Vercel also recorded PR preview `dpl_EwTQN9EfP32dNyJES2bAKNW11qW4` as **READY** with `target: null` at 2026-10-16 11:26:50 UTC, from this PR branch at `bd221db7d328da6ee5544b56ccde8d1d62d85026`; it is separate from Production. At 2026-10-16 11:26 UTC, I ran read-only checks against the Production hostname: `/api/health` returned HTTP 200 with all four checks `ok`, and `node scripts/verify-content-api-destinations.mjs https://content.fairfieldbasketballclub.com --expected-challenge=29 --expected-referee=2` passed (Challenge 29, Referee 2, unscoped list 400). These are the checks run for this checkpoint; no separate verification by another platform lane is claimed. The Production database facts below are only a read-only snapshot from 2026-10-15 and were not rechecked on October 16. No Vercel settings, migrations, database, or hosted content were changed.
 
@@ -19,31 +21,35 @@ Historical reconciliation: 2026-10-15 on branch `swarm/content-destination-recon
 | `master` as merged would regress the live contract. | `master`'s v1 routes stripped the `release` object and only required `destination` when `CONTENT_V1_REQUIRE_DESTINATION=true`. Both consumers and `scripts/verify-content-api-destinations.mjs` expect `release.destination`. |
 | This branch reconciles the two lines. | It ports the local-only work onto `master` (cherry-picked with `-x`), keeps `master`'s atomic publication (`0008`), admin authorization, `CONTENT_SECURE_PUBLISHING` flag and npm lockfile, and restores the live public contract. |
 
-## Production database — last read-only snapshot (2026-10-15; not rechecked 2026-10-16)
+## Production database (verified read-only)
+
+Snapshot **2026-10-16** after migrations `0008`/`0009`; earlier 2026-10-15 facts are retained in the historical section above where they differ.
 
 | Item | State |
 | --- | --- |
-| Supabase migration history | `20261014111739 content_releases`, `20261014111743 backfill_published_revisions`. Migrations `0001`–`0005` were applied outside the CLI ledger. |
-| `0008_atomic_publication.sql` | **Not applied.** No `public.set_content_status` function exists; `published_content` is still the `0004`-era view that joins live `content_media` (media is not frozen at publish time). |
-| `0009_content_releases_api_write_grants.sql` | Not applied, but already effectively true: `anon`/`authenticated` hold only `SELECT`/`REFERENCES`/`TRIGGER` on `content_releases`. |
-| `content_releases` | Table, constraints, indexes and the `active published releases are readable` policy match `0006` on `master`. 31 rows: 29 `challenge` + 2 `referee`, all `published`. |
-| `content_items` | 31 `published`, 1 `draft`, 31 `removed`. Every published item has a published revision (0007 effective). |
-| Read models | `published_content` 31 rows; `published_destination_content` 29 `challenge` + 2 `referee`. |
+| Supabase migration history | `20261014111739 content_releases`, `20261014111743 backfill_published_revisions`, `20261016171123 atomic_publication`, `20261016171128 content_releases_api_write_grants`. Migrations `0001`–`0005` were applied outside the CLI ledger. |
+| `0008_atomic_publication.sql` | **Applied** (`20261016171123`). `public.set_content_status(uuid, text)` exists; **`EXECUTE` granted only to `service_role`**. `published_content` reads `media` and `challenge_ids` from the revision snapshot (not live `content_media`). |
+| `0009_content_releases_api_write_grants.sql` | **Applied** (`20261016171128`). Encodes API-role write revokes on `content_releases` (already matched Production before apply). |
+| Row counts (unchanged by 0008/0009) | `content_items` **63**, `content_revisions` **31**, `content_media` **2**, `published_content` **31**. |
+| Revision media snapshots | **31** revisions include a `media` key (was **0** before `0008` backfill). |
+| `content_releases` | 31 rows: 29 `challenge` + 2 `referee`, all `published`. |
+| `content_items` (status) | 31 `published`, 1 `draft`, 31 `removed`. Every published item has a published revision (`0007` effective). |
+| Read models | `published_content` 31 rows; `published_destination_content` 29 `challenge` + 2 `referee`. Public API: Challenge **29**, Referee **2**. |
+| Secure publishing flag | `CONTENT_SECURE_PUBLISHING` **not** set on Vercel (legacy admin + legacy publish path). Enable only after owner assigns `app_metadata.content_admin`. |
 | Storage | Bucket `content-media`. |
 
 ### Code compatibility with the live schema
 
-- **Production code `823e919`:** compatible (it is serving; `/api/health` returns all checks `ok`).
-- **`master` `b7f3b48`:** schema-compatible only with `CONTENT_SECURE_PUBLISHING` unset/false (with it on, publishing calls the missing `set_content_status` RPC and fails). Contract-incompatible with consumers as described above.
-- **This branch:** schema-compatible with `CONTENT_SECURE_PUBLISHING` unset/false, and with the flag on once `0008` is applied. Its public contract matches Production.
+- **Production deploy (`master` after PR #19):** schema-compatible with `CONTENT_SECURE_PUBLISHING` unset/false. With the flag on, publishing uses `set_content_status` (now present after `0008`); admin routes still require owner-assigned `content_admin` before enabling the flag.
+- **Historical Production code `823e919`:** served before the `master` reconciliation; superseded by the current Vercel Production deployment.
 
-### What applying `0008` would change (owner decision)
+### What `0008` changed (applied 2026-10-16)
 
-1. Creates `public.set_content_status(uuid, text)` (service-role only) that locks the item, writes a revision with a frozen media snapshot, and updates status in one transaction; retries are idempotent.
-2. Backfills a `media` key into the **latest** revision of each item that lacks one, from currently linked media.
-3. Replaces `published_content` so `media` and `challenge_ids` come from the revision snapshot instead of live `content_media`. Media edits after publication no longer appear publicly until republished.
+1. Installed `public.set_content_status(uuid, text)` (service-role only): locks the item, writes a revision with a frozen media snapshot, and updates status in one transaction; retries are idempotent.
+2. Backfilled a `media` key into the **latest** revision of each item that lacked one (0 → 31 revisions with a media snapshot).
+3. Replaced `published_content` so `media` and `challenge_ids` come from the revision snapshot instead of live `content_media`. Media edits after publication no longer appear publicly until republished.
 
-On this branch the legacy publish path (flag off) writes the same media snapshot, so applying `0008` before enabling the flag does not drop media from newly published items. On `master` it would have.
+With `CONTENT_SECURE_PUBLISHING` still off, the legacy publish path remains active and writes the same media snapshot shape as the RPC path; enabling the flag switches admin publish/unpublish to the RPC without further schema changes.
 
 ## Backend and data model
 
@@ -56,13 +62,13 @@ Supabase is the application backend:
 - `content_releases` records where each canonical record is released (`challenge`, `referee`), with schedule, featured, display order, and history.
 - `published_destination_content` joins both and is the public read model used by `/api/v1`. See [content-releases.md](./content-releases.md).
 
-| Migration | Responsibility | Production status (snapshot 2026-10-15) |
+| Migration | Responsibility | Production status (2026-10-16) |
 | --- | --- | --- |
 | `0001`–`0005` | Content tables, revisions, media storage, published view, asset library metadata | Applied (outside CLI ledger) |
 | `0006_content_releases.sql` | `content_releases`, constraints, RLS, `published_destination_content` | Applied (`20261014111739`) |
 | `0007_backfill_published_revisions.sql` | Revision snapshots for legacy published items | Applied (`20261014111743`) |
-| `0008_atomic_publication.sql` | `set_content_status` RPC, frozen media snapshots | **Not applied** (owner-gated) |
-| `0009_content_releases_api_write_grants.sql` | Encodes the API-role write revokes Production already has | Not applied; no-op on Production (owner-gated) |
+| `0008_atomic_publication.sql` | `set_content_status` RPC, frozen media snapshots | Applied (`20261016171123`) |
+| `0009_content_releases_api_write_grants.sql` | API-role write revokes on `content_releases` | Applied (`20261016171128`) |
 
 See [schema.md](./schema.md) and [supabase.md](./supabase.md).
 
