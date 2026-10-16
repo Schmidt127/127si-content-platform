@@ -32,6 +32,8 @@ Snapshot **2026-10-16** after migrations `0008`/`0009`; earlier 2026-10-15 facts
 | Supabase migration history | `20261014111739 content_releases`, `20261014111743 backfill_published_revisions`, `20261016171123 atomic_publication`, `20261016171128 content_releases_api_write_grants`. Migrations `0001`–`0005` were applied outside the CLI ledger. |
 | `0008_atomic_publication.sql` | **Applied** (`20261016171123`). `public.set_content_status(uuid, text)` exists; **`EXECUTE` granted only to `service_role`**. `published_content` reads `media` and `challenge_ids` from the revision snapshot (not live `content_media`). |
 | `0009_content_releases_api_write_grants.sql` | **Applied** (`20261016171128`). Encodes API-role write revokes on `content_releases` (already matched Production before apply). |
+| `0010_public_views_security_invoker.sql` | **Applied** (owner; see Supabase migration history). Sets `security_invoker` on public read views. |
+| `0011_content_items_destination_rls.sql` | **Not applied** (repo-only until owner runs it). Tightens anon/authenticated `SELECT` on `content_items` to rows with an active destination release. |
 | Row counts (unchanged by 0008/0009) | `content_items` **63**, `content_revisions` **31**, `content_media` **2**, `published_content` **31**. |
 | Revision media snapshots | **31** revisions include a `media` key (was **0** before `0008` backfill). |
 | `content_releases` | 31 rows: 29 `challenge` + 2 `referee`, all `published`. |
@@ -71,6 +73,8 @@ Supabase is the application backend:
 | `0007_backfill_published_revisions.sql` | Revision snapshots for legacy published items | Applied (`20261014111743`) |
 | `0008_atomic_publication.sql` | `set_content_status` RPC, frozen media snapshots | Applied (`20261016171123`) |
 | `0009_content_releases_api_write_grants.sql` | API-role write revokes on `content_releases` | Applied (`20261016171128`) |
+| `0010_public_views_security_invoker.sql` | `security_invoker` on `published_content` and `published_destination_content` | Applied (Production) |
+| `0011_content_items_destination_rls.sql` | Destination-aware anon `SELECT` on `content_items` | **Pending owner apply** |
 
 See [schema.md](./schema.md) and [supabase.md](./supabase.md).
 
@@ -116,8 +120,8 @@ Challenge (`destination=challenge`) and Referee (`destination=referee`) read onl
 ## Known limitations
 
 - **Production** requires `app_metadata.content_admin === true` when `CONTENT_SECURE_PUBLISHING=true`. With the flag off (local/Preview default), any valid Supabase Auth user still passes the admin check.
-- `npm run lint` checks TypeScript/TSX with the Next.js and TypeScript rules. Existing typing, image and hook warnings remain visible; they are not a claim of full UI acceptance.
-- The anonymous RLS policy on `content_items` still allows direct Supabase reads of published library versions regardless of destination; the supported consumer path is `/api/v1`.
+- Until the owner applies `0011_content_items_destination_rls.sql`, Production still allows direct Supabase anon reads of any published library row on `content_items`, regardless of destination. The supported consumer path remains `/api/v1` (`published_destination_content`). After apply, anon reads on `content_items` require at least one active destination release (same window as `content_releases` RLS).
+- Direct anon reads on `content_revisions` for published parents are unchanged; tightening that table is a separate follow-up if needed.
 - Saving edits to a published record returns its library version to draft, hiding it on every destination until republished. Releases are unchanged.
 - Admin state labels use the server clock; public visibility uses the database clock.
 - Public responses are shared-cacheable for up to about six minutes after a release change.

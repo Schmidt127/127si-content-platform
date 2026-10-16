@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabasePublic } from "@/lib/supabase";
-import { PUBLIC_CACHE_HEADERS, publicMediaUrl } from "@/lib/api-contract";
+import { mapPublicMediaUrls, PUBLIC_CACHE_HEADERS } from "@/lib/api-contract";
 import { parsePublicDestination, toPublicDestinationItem, type DestinationContentRow } from "@/lib/content-releases";
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -14,6 +14,6 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   if (!data) return NextResponse.json({ error: "Content not found" }, { status: 404 });
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const item = toPublicDestinationItem(data as DestinationContentRow);
-  const normalized = { ...item, media: ((item.media as any[] | undefined) ?? []).map((asset: any) => ({ ...asset, public_url: publicMediaUrl(asset.public_url, base) })) };
+  const normalized = { ...item, media: mapPublicMediaUrls(item.media, base) };
   return NextResponse.json({ data: normalized }, { headers: PUBLIC_CACHE_HEADERS });
 }

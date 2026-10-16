@@ -8,7 +8,7 @@ export default function AdminLoginPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setMessage("Signing in...");
     const values = new FormData(event.currentTarget);
-    const { error } = await (getSupabaseBrowser().auth as any).signInWithPassword({ email: String(values.get("email") ?? ""), password: String(values.get("password") ?? "") });
+    const { error } = await getSupabaseBrowser().auth.signInWithPassword({ email: String(values.get("email") ?? ""), password: String(values.get("password") ?? "") });
     if (error) { setMessage(error.message); return; }
     window.location.href = "/admin/new";
   }

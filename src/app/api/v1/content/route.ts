@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { getSupabasePublic } from "@/lib/supabase";
-import { PUBLIC_CACHE_HEADERS, publicMediaUrl } from "@/lib/api-contract";
+import { mapPublicMediaUrls, PUBLIC_CACHE_HEADERS } from "@/lib/api-contract";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, paginationMeta, parseContentType, parsePositiveInt, publicContentResponse } from "@/lib/content-api";
 import { parsePublicDestination, toPublicDestinationItem, type DestinationContentRow } from "@/lib/content-releases";
 
 function withMediaUrls(items: ReturnType<typeof toPublicDestinationItem>[]) {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  return items.map((item) => ({ ...item, media: ((item.media as any[] | undefined) ?? []).map((asset: any) => ({ ...asset, public_url: publicMediaUrl(asset.public_url, base) })) }));
+  return items.map((item) => ({ ...item, media: mapPublicMediaUrls(item.media, base) }));
 }
 
 export async function GET(request: Request) {

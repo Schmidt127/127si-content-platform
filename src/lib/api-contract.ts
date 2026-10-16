@@ -46,3 +46,16 @@ export function publicMediaUrl(value: unknown, baseUrl: string | undefined) {
   if (typeof value !== "string" || !value || /^https?:\/\//i.test(value) || !baseUrl) return value;
   return `${baseUrl.replace(/\/+$/, "")}/${value.replace(/^\/+/, "")}`;
 }
+
+export type PublicMediaAsset = JsonRecord & { public_url?: string | null };
+
+export function mapPublicMediaUrls(media: unknown, baseUrl: string | undefined): PublicMediaAsset[] {
+  if (!Array.isArray(media)) return [];
+  return media.map((entry) => {
+    if (!isJsonRecord(entry)) return { public_url: null };
+    return {
+      ...entry,
+      public_url: publicMediaUrl(entry.public_url, baseUrl) as string | null | undefined,
+    };
+  });
+}

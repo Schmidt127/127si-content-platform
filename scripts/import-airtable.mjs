@@ -106,7 +106,6 @@ function toContentItem(record) {
   };
 }
 
-function text(input) { return typeof input === "string" ? input.trim() : Array.isArray(input) ? input.map(text).filter(Boolean).join(", ") : input?.name ?? ""; }
 function parseArgs(argv) {
   const result = {};
   for (let i = 0; i < argv.length; i++) {
