@@ -1,6 +1,8 @@
 # Content Platform current state
 
-This is the repository-level source of truth for the Content Platform. It separates what is **implemented** on this branch, what is **tested**, what is **merged** on GitHub, and what is **deployed** to Production. Those are not the same thing today; see [Repository identity and Production divergence](#repository-identity-and-production-divergence).
+> **Checkpoint — October 16, 2026 (read-only metadata; no hosted change):** GitHub `defaultBranchRef` is **`master`** (verified via GitHub API 2026-10-16; owner default-branch correction from 2026-10-15 appears applied). Vercel Production deployment **`dpl_E5YSVqKb24YXFNQSHcTQAPjv1gn1`** is **READY** from Git **`master`** at commit **`e882733`** (merge #16 TypeScript lint, 2026-10-15). The sections below that describe Production on CLI deploy `823e919`, misconfigured default branch `127-si-shooting-challenge`, or unreconciled `swarm/content-destination-reconcile` are **historical as of 2026-10-15** unless re-verified; treat this checkpoint as the current deploy line. Owner gates unchanged: migration **`0008`**, **`CONTENT_SECURE_PUBLISHING`**, and `content_admin` assignment are not applied or enabled by this note.
+
+This is the repository-level source of truth for the Content Platform. It separates what is **implemented** on this branch, what is **tested**, what is **merged** on GitHub, and what is **deployed** to Production. Those are not always the same thing; see [Repository identity and Production divergence](#repository-identity-and-production-divergence) for the prior 2026-10-15 reconciliation narrative.
 
 Reconciled: 2026-10-15 on branch `swarm/content-destination-reconcile` (based on `origin/master` `b7f3b48`). Production facts below come from read-only SQL against Supabase `oqnnvmxjdersgcguhvsc` and read-only `GET` requests to `https://content.fairfieldbasketballclub.com` on 2026-10-15. Nothing hosted was changed.
 
