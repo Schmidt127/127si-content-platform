@@ -1,10 +1,12 @@
 # Content Platform current state
 
-This is the repository-level source of truth for the Content Platform. It separates what is **implemented** on this branch, what is **tested**, what is **merged** on GitHub, and what is **deployed** to Production. Those are not the same thing today; see [Repository identity and Production divergence](#repository-identity-and-production-divergence).
+This is the repository-level source of truth for the Content Platform. It separates what is **implemented** on this branch, what is **tested**, what is **merged** on GitHub, and what is **deployed** to Production. Those are not the same thing today; see [historical repository identity and Production divergence](#historical-repository-identity-and-production-divergence).
 
-Reconciled: 2026-10-15 on branch `swarm/content-destination-reconcile` (based on `origin/master` `b7f3b48`). Production facts below come from read-only SQL against Supabase `oqnnvmxjdersgcguhvsc` and read-only `GET` requests to `https://content.fairfieldbasketballclub.com` on 2026-10-15. Nothing hosted was changed.
+Historical reconciliation: 2026-10-15 on branch `swarm/content-destination-reconcile` (based on `origin/master` `b7f3b48`). Production facts in the historical section below came from read-only SQL against Supabase `oqnnvmxjdersgcguhvsc` and read-only `GET` requests to `https://content.fairfieldbasketballclub.com` on 2026-10-15. Nothing hosted was changed.
 
-## Repository identity and Production divergence
+> **Current checkpoint — October 16, 2026 (read-only):** GitHub metadata reports `master` as the default branch at `e8827332d7659d78623d1c74a9ebab0ba73dc538`. Vercel reports Production deployment `dpl_E5YSVqKb24YXFNQSHcTQAPjv1gn1`, **READY**, from `master` at that commit (created 2026-10-15 21:34:29 UTC). Vercel also recorded PR preview `dpl_EwTQN9EfP32dNyJES2bAKNW11qW4` as **READY** with `target: null` at 2026-10-16 11:26:50 UTC, from this PR branch at `bd221db7d328da6ee5544b56ccde8d1d62d85026`; it is separate from Production. At 2026-10-16 11:26 UTC, I ran read-only checks against the Production hostname: `/api/health` returned HTTP 200 with all four checks `ok`, and `node scripts/verify-content-api-destinations.mjs https://content.fairfieldbasketballclub.com --expected-challenge=29 --expected-referee=2` passed (Challenge 29, Referee 2, unscoped list 400). These are the checks run for this checkpoint; no separate verification by another platform lane is claimed. The Production database facts below are only a read-only snapshot from 2026-10-15 and were not rechecked on October 16. No Vercel settings, migrations, database, or hosted content were changed.
+
+## Historical repository identity and Production divergence (verified 2026-10-15)
 
 | Fact | Evidence (2026-10-15) |
 | --- | --- |
@@ -15,7 +17,7 @@ Reconciled: 2026-10-15 on branch `swarm/content-destination-reconcile` (based on
 | `master` as merged would regress the live contract. | `master`'s v1 routes stripped the `release` object and only required `destination` when `CONTENT_V1_REQUIRE_DESTINATION=true`. Both consumers and `scripts/verify-content-api-destinations.mjs` expect `release.destination`. |
 | This branch reconciles the two lines. | It ports the local-only work onto `master` (cherry-picked with `-x`), keeps `master`'s atomic publication (`0008`), admin authorization, `CONTENT_SECURE_PUBLISHING` flag and npm lockfile, and restores the live public contract. |
 
-## Production database (verified read-only)
+## Production database — last read-only snapshot (2026-10-15; not rechecked 2026-10-16)
 
 | Item | State |
 | --- | --- |
@@ -52,7 +54,7 @@ Supabase is the application backend:
 - `content_releases` records where each canonical record is released (`challenge`, `referee`), with schedule, featured, display order, and history.
 - `published_destination_content` joins both and is the public read model used by `/api/v1`. See [content-releases.md](./content-releases.md).
 
-| Migration | Responsibility | Production |
+| Migration | Responsibility | Production status (snapshot 2026-10-15) |
 | --- | --- | --- |
 | `0001`–`0005` | Content tables, revisions, media storage, published view, asset library metadata | Applied (outside CLI ledger) |
 | `0006_content_releases.sql` | `content_releases`, constraints, RLS, `published_destination_content` | Applied (`20261014111739`) |

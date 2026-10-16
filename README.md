@@ -4,7 +4,7 @@ Central content service for 127SI Tutorials, FBC Book readings, and athlete Shou
 
 ## Status
 
-The MVP admin, publishing workflow, per-destination releases, Supabase media paths, health checks, and public v1 API are implemented. `master` is the canonical branch (the GitHub default branch `127-si-shooting-challenge` is an unrelated README stub). Production applies migrations `0006` and `0007`, not `0008`/`0009`, and currently serves a CLI deploy of an unpushed branch rather than `master`; see [current state](docs/current-state.md) and the [destination API contract](docs/contracts/destination-api.md).
+The MVP admin, publishing workflow, per-destination releases, Supabase media paths, health checks, and public v1 API are implemented. GitHub reports `master` as the default branch (October 16, 2026; head `e8827332d7659d78623d1c74a9ebab0ba73dc538`). Vercel reports Production deployment `dpl_E5YSVqKb24YXFNQSHcTQAPjv1gn1`, READY from `master` at that commit (created October 15, 2026 at 21:34 UTC). Preview deployments can also be READY with `target: null`; that does not indicate Production. Read-only checks I ran against the Production hostname on October 16 returned health `200`, Challenge 29 items, Referee 2 items, and unscoped list rejected with `400`. Database observations dated October 15 remain historical. See the dated [current-state checkpoint](docs/current-state.md) and the [destination API contract](docs/contracts/destination-api.md).
 
 Start with the [current-state documentation](docs/current-state.md), then use the [deployment checklist](docs/deployment.md).
 
@@ -39,4 +39,4 @@ npm test
 npm run build
 ```
 
-The intended production hostname is `content.fairfieldbasketballclub.com`; DNS and deployment remain an external release step.
+The Production hostname is `content.fairfieldbasketballclub.com` and is currently serving the Vercel Production deployment recorded in [current state](docs/current-state.md). DNS and deployment are already in use; later releases still require a reviewed Production deploy.
