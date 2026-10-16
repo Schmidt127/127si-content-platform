@@ -37,14 +37,14 @@ If metadata or linking fails after an upload, the current routes attempt to remo
 
 ## Release boundary
 
-Before a release, verify the target Supabase project, confirm migrations `0001` through `0007` are applied (Production state: [current-state.md](./current-state.md#production-database-verified-read-only); `0008` only before enabling `CONTENT_SECURE_PUBLISHING`), have the owner approve destination assignments from the [assignment report](./destination-assignment-report.md), confirm the bucket and Auth user, configure hosting variables, run the local checks, and perform the smoke test in [deployment.md](./deployment.md). Deployment and DNS changes are external release steps. Deploy from Git (`master`), not the CLI, so the running commit is traceable.
+Before a release, verify the target Supabase project, confirm migrations `0001` through `0009` are applied (Production state: [current-state.md](./current-state.md#production-database-verified-read-only); enable `CONTENT_SECURE_PUBLISHING` only after owner assigns `app_metadata.content_admin`), have the owner approve destination assignments from the [assignment report](./destination-assignment-report.md), confirm the bucket and Auth user, configure hosting variables, run the local checks, and perform the smoke test in [deployment.md](./deployment.md). Deployment and DNS changes are external release steps. Deploy from Git (`master`), not the CLI, so the running commit is traceable.
 
 The repository currently has no deployment workflow or migration automation. The local `.vercel` link metadata is not deployment evidence; hosted deployment state was not established in the audit.
 
 ## Incident notes
 
 - If `/api/health` reports missing configuration, check the three runtime variable names and the Supabase URL format.
-- If database access is unavailable, verify the target project has the published view and the migration sequence through `0007`.
+- If database access is unavailable, verify the target project has the published view and the migration sequence through `0009` (Production includes `set_content_status` after `0008`).
 - If the `destinations` health check fails, migration `0006` has not been applied to that project.
 - If an item is missing from a consumer, check on the edit page that its library version is published and that its release for that destination is Published (not Scheduled, Expired, Unpublished, or Archived). Allow up to about six minutes for cached responses.
 - If a consumer returns `400`, confirm it sends `destination=challenge` or `destination=referee`.
