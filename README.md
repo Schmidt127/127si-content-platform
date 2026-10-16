@@ -4,7 +4,7 @@ Central content service for 127SI Tutorials, FBC Book readings, and athlete Shou
 
 ## Status
 
-The MVP admin, publishing workflow, per-destination releases, Supabase media paths, health checks, and public v1 API are implemented. `master` is the canonical branch and is now also the GitHub default branch (verified October 16, 2026; current `master` head `e8827332`). The October 15 Production deployment and migration observations are historical; the latest Vercel project record available on October 16 reports a READY deployment but does not expose enough detail to confirm its target or source commit. See the dated [current-state checkpoint](docs/current-state.md) and the [destination API contract](docs/contracts/destination-api.md).
+The MVP admin, publishing workflow, per-destination releases, Supabase media paths, health checks, and public v1 API are implemented. GitHub reports `master` as the default branch (October 16, 2026; head `e8827332d7659d78623d1c74a9ebab0ba73dc538`). Vercel reports Production deployment `dpl_E5YSVqKb24YXFNQSHcTQAPjv1gn1`, READY from `master` at that commit (created October 15, 2026 at 21:34 UTC). A separate later READY deployment has `target: null` and is not identified as Production. Read-only checks against the Production hostname passed October 16: health `200`, Challenge 29 items, Referee 2 items, and unscoped list rejected with `400`. Database observations dated October 15 remain historical. See the dated [current-state checkpoint](docs/current-state.md) and the [destination API contract](docs/contracts/destination-api.md).
 
 Start with the [current-state documentation](docs/current-state.md), then use the [deployment checklist](docs/deployment.md).
 
@@ -39,4 +39,4 @@ npm test
 npm run build
 ```
 
-The intended production hostname is `content.fairfieldbasketballclub.com`; DNS and deployment remain an external release step.
+The Production hostname is `content.fairfieldbasketballclub.com` and is currently serving the Vercel Production deployment recorded in [current state](docs/current-state.md). DNS and deployment are already in use; later releases still require a reviewed Production deploy.
