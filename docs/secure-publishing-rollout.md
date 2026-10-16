@@ -1,10 +1,10 @@
 # Secure publishing rollout
 
-Code on `master` ships **scoped admin + atomic publish behind `CONTENT_SECURE_PUBLISHING`**. When that env var is **unset or not `true`**, admin routes keep the pre-hardening behavior: any valid Supabase session can use the admin API, and publish/unpublish uses the legacy revision + status update path. Production stays on legacy behavior until the owner completes the steps below and sets `CONTENT_SECURE_PUBLISHING=true` on Vercel.
+Code on `master` ships **scoped admin + atomic publish behind `CONTENT_SECURE_PUBLISHING`**. When that env var is **unset or not `true`**, admin routes keep the pre-hardening behavior: any valid Supabase session can use the admin API, and publish/unpublish uses the legacy revision + status update path.
 
-No hosted migration, account-role assignment, deployment, storage visibility change, or branch administration was performed by agents.
+**Production status (2026-10-16 ~11:20 AM MT):** Migrations **`0008`** and **`0009`** are applied on `oqnnvmxjdersgcguhvsc`. Both admin users have **`app_metadata.content_admin`: `true`** (`schmidt@fairfieldbasketballclub.com`, `mschmidt@fairfield.k12.mt.us`). Vercel **Production** has **`CONTENT_SECURE_PUBLISHING=true`** and was redeployed as **`dpl_HWJdUgM3ei5ihHPNpJ8gF5P9z3Qk`** from `master` **`56c5d97`**. Read-only verification: `/api/health` ok; public counts Challenge **29** / Referee **2**; admin API **401** when signed out. **Pending:** step **3.4** — owner sign-in publish test.
 
-As of **2026-10-16**, migrations **`0008`** (`20261016171123 atomic_publication`) and **`0009`** (`20261016171128 content_releases_api_write_grants`) are **applied** in Production (`oqnnvmxjdersgcguhvsc`). `public.set_content_status` exists and is executable only by `service_role`. `published_content` reads media only from the revision snapshot; the legacy publish path (flag off) writes the same media snapshot, so applying `0008` before enabling the flag did not drop media from published items (31 revisions now carry a `media` snapshot; table row counts unchanged). **`CONTENT_SECURE_PUBLISHING` is not yet enabled** — assign `app_metadata.content_admin` first, then set the flag on Vercel. Release routes use the same `content_admin` gate when the flag is on.
+Agents did not perform these owner steps; this document records owner-reported state.
 
 ## Rollout flag
 
@@ -14,9 +14,16 @@ As of **2026-10-16**, migrations **`0008`** (`20261016171123 atomic_publication`
 
 ## Owner steps (click-by-click)
 
-Do these **before** setting `CONTENT_SECURE_PUBLISHING=true` in Production.
+For **new environments**, complete steps 1–3 in order before turning the flag on in that environment.
 
-### 1. Assign `content_admin` for each admin user (Supabase Dashboard)
+### 1. Assign `content_admin` for each admin user (Supabase Dashboard) — **done in Production (2026-10-16 ~11:20 AM MT)**
+
+`app_metadata.content_admin` set to **`true`** for:
+
+- `schmidt@fairfieldbasketballclub.com`
+- `mschmidt@fairfield.k12.mt.us`
+
+(Retain the click-by-click below for additional admins or non-Production projects.)
 
 1. Open [Supabase Dashboard](https://supabase.com/dashboard) and select project **`oqnnvmxjdersgcguhvsc`** (Content Platform).
 2. Go to **Authentication** → **Users**.
@@ -30,12 +37,12 @@ Do these **before** setting `CONTENT_SECURE_PUBLISHING=true` in Production.
 
 Production ledger: `20261016171123 atomic_publication` plus `20261016171128 content_releases_api_write_grants` (`0009`). Do not re-run `0006`–`0009` on Production. For new environments, apply every file in `supabase/migrations/` in order through `0009`.
 
-### 3. Enable scoped admin + atomic publish (Vercel)
+### 3. Enable scoped admin + atomic publish (Vercel) — **Production enabled (2026-10-16 ~11:20 AM MT)**
 
-1. Open [Vercel](https://vercel.com) → Content Platform project → **Settings** → **Environment Variables**.
-2. Add **`CONTENT_SECURE_PUBLISHING`** = **`true`** for **Production** (and Preview if desired).
-3. **Redeploy** Production from the latest `master` build.
-4. Sign in to admin, publish a test draft, confirm public API still serves content.
+1. ~~Open [Vercel](https://vercel.com) → Content Platform project → **Settings** → **Environment Variables**.~~ **Done:** **`CONTENT_SECURE_PUBLISHING=true`** on **Production**.
+2. ~~**Redeploy** Production from the latest `master` build.~~ **Done:** **`dpl_HWJdUgM3ei5ihHPNpJ8gF5P9z3Qk`**, `master` **`56c5d97`**, **READY**.
+3. Read-only smoke (recorded): `/api/health` ok; public Challenge **29** / Referee **2**; admin API **401** without session.
+4. **Pending — owner publish test:** Sign in to admin, publish a test draft, confirm public API still serves content.
 
 ## Authorization (when flag is on)
 

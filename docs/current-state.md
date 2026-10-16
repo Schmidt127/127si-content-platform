@@ -6,7 +6,9 @@ Historical reconciliation: 2026-10-15 on branch `swarm/content-destination-recon
 
 > **Post-merge Production checkpoint — October 16, 2026 (read-only):** GitHub metadata reports `master` at merged commit `976bfd8c1230ac7a05ba61ea6ce3cc50009882cd` (PR #19). Vercel reports Production deployment `dpl_64m3GURiwCUz82bHrhvWqXSWduYQ`, **READY**, from `master` at that commit (created 11:31:27 UTC). At 11:33:31 UTC, I reran read-only checks against the Production hostname: `/api/health` returned HTTP 200 with all four checks `ok`, and `node scripts/verify-content-api-destinations.mjs https://content.fairfieldbasketballclub.com --expected-challenge=29 --expected-referee=2` passed (Challenge 29, Referee 2, unscoped list 400). The prior pre-merge deployment/checkpoint below is retained as dated evidence. No Vercel settings or hosted content were changed in that checkpoint.
 >
-> **Production migrations — October 16, 2026:** Owner applied `0008_atomic_publication.sql` and `0009_content_releases_api_write_grants.sql` to Content Production Supabase `oqnnvmxjdersgcguhvsc`. Supabase migration history now records `20261014111739 content_releases`, `20261014111743 backfill_published_revisions`, `20261016171123 atomic_publication`, and `20261016171128 content_releases_api_write_grants` (migrations `0001`–`0005` remain applied outside the CLI ledger). Table counts before and after were unchanged: `content_items` 63, `content_revisions` 31, `content_media` 2, `published_content` 31; revisions with a `media` snapshot key went from **0** to **31**. Public API counts stayed Challenge **29** / Referee **2**. `public.set_content_status` is present and executable only by `service_role`. **`CONTENT_SECURE_PUBLISHING` is not enabled** on Vercel; next owner steps are `app_metadata.content_admin` for each admin, then set the flag (see [secure-publishing-rollout.md](./secure-publishing-rollout.md)).
+> **Production migrations — October 16, 2026:** Owner applied `0008_atomic_publication.sql` and `0009_content_releases_api_write_grants.sql` to Content Production Supabase `oqnnvmxjdersgcguhvsc`. Supabase migration history now records `20261014111739 content_releases`, `20261014111743 backfill_published_revisions`, `20261016171123 atomic_publication`, and `20261016171128 content_releases_api_write_grants` (migrations `0001`–`0005` remain applied outside the CLI ledger). Table counts before and after were unchanged: `content_items` 63, `content_revisions` 31, `content_media` 2, `published_content` 31; revisions with a `media` snapshot key went from **0** to **31**. Public API counts stayed Challenge **29** / Referee **2**. `public.set_content_status` is present and executable only by `service_role`.
+>
+> **Secure publishing enabled — October 16, 2026 (~11:20 AM MT):** Owner set **`app_metadata.content_admin`: `true`** on both Content admin Auth users (`schmidt@fairfieldbasketballclub.com`, `mschmidt@fairfield.k12.mt.us`), set **`CONTENT_SECURE_PUBLISHING=true`** on Vercel **Production**, and redeployed. Vercel reports deployment **`dpl_HWJdUgM3ei5ihHPNpJ8gF5P9z3Qk`**, **READY**, from `master` at **`56c5d97`**. Read-only checks: `/api/health` HTTP **200** (all checks ok); public destination counts unchanged (Challenge **29**, Referee **2**); unsigned admin API probe returned **401** (expected). **Pending:** owner publish test per [secure-publishing-rollout.md](./secure-publishing-rollout.md) step **3.4** (sign in, publish a test draft, confirm public API).
 
 > **Pre-merge checkpoint — October 16, 2026 11:26 UTC (read-only):** GitHub metadata reports `master` as the default branch at `e8827332d7659d78623d1c74a9ebab0ba73dc538`. Vercel reports Production deployment `dpl_E5YSVqKb24YXFNQSHcTQAPjv1gn1`, **READY**, from `master` at that commit (created 2026-10-15 21:34:29 UTC). Vercel also recorded PR preview `dpl_EwTQN9EfP32dNyJES2bAKNW11qW4` as **READY** with `target: null` at 2026-10-16 11:26:50 UTC, from this PR branch at `bd221db7d328da6ee5544b56ccde8d1d62d85026`; it is separate from Production. At 2026-10-16 11:26 UTC, I ran read-only checks against the Production hostname: `/api/health` returned HTTP 200 with all four checks `ok`, and `node scripts/verify-content-api-destinations.mjs https://content.fairfieldbasketballclub.com --expected-challenge=29 --expected-referee=2` passed (Challenge 29, Referee 2, unscoped list 400). These are the checks run for this checkpoint; no separate verification by another platform lane is claimed. The Production database facts below are only a read-only snapshot from 2026-10-15 and were not rechecked on October 16. No Vercel settings, migrations, database, or hosted content were changed.
 
@@ -35,12 +37,12 @@ Snapshot **2026-10-16** after migrations `0008`/`0009`; earlier 2026-10-15 facts
 | `content_releases` | 31 rows: 29 `challenge` + 2 `referee`, all `published`. |
 | `content_items` (status) | 31 `published`, 1 `draft`, 31 `removed`. Every published item has a published revision (`0007` effective). |
 | Read models | `published_content` 31 rows; `published_destination_content` 29 `challenge` + 2 `referee`. Public API: Challenge **29**, Referee **2**. |
-| Secure publishing flag | `CONTENT_SECURE_PUBLISHING` **not** set on Vercel (legacy admin + legacy publish path). Enable only after owner assigns `app_metadata.content_admin`. |
+| Secure publishing (2026-10-16 ~11:20 AM MT) | Vercel Production **`CONTENT_SECURE_PUBLISHING=true`** (deploy `dpl_HWJdUgM3ei5ihHPNpJ8gF5P9z3Qk`, `master` `56c5d97`). Admin gate: **`content_admin`** on `schmidt@fairfieldbasketballclub.com` and `mschmidt@fairfield.k12.mt.us`. Publish/unpublish uses **`set_content_status`**. Owner publish smoke (rollout **3.4**) **not yet recorded**. |
 | Storage | Bucket `content-media`. |
 
 ### Code compatibility with the live schema
 
-- **Production deploy (`master` after PR #19):** schema-compatible with `CONTENT_SECURE_PUBLISHING` unset/false. With the flag on, publishing uses `set_content_status` (now present after `0008`); admin routes still require owner-assigned `content_admin` before enabling the flag.
+- **Production deploy (Vercel `dpl_HWJdUgM3ei5ihHPNpJ8gF5P9z3Qk`, `56c5d97`):** runs with **`CONTENT_SECURE_PUBLISHING=true`**, migration **`0008`** applied, and **`content_admin`** assigned for both admin users. Publishing uses `set_content_status`; admin routes require `app_metadata.content_admin === true` (unsigned requests **401**).
 - **Historical Production code `823e919`:** served before the `master` reconciliation; superseded by the current Vercel Production deployment.
 
 ### What `0008` changed (applied 2026-10-16)
@@ -49,7 +51,7 @@ Snapshot **2026-10-16** after migrations `0008`/`0009`; earlier 2026-10-15 facts
 2. Backfilled a `media` key into the **latest** revision of each item that lacked one (0 → 31 revisions with a media snapshot).
 3. Replaced `published_content` so `media` and `challenge_ids` come from the revision snapshot instead of live `content_media`. Media edits after publication no longer appear publicly until republished.
 
-With `CONTENT_SECURE_PUBLISHING` still off, the legacy publish path remains active and writes the same media snapshot shape as the RPC path; enabling the flag switches admin publish/unpublish to the RPC without further schema changes.
+Production now uses the RPC publish path with the secure flag on; the legacy two-step path applies only when `CONTENT_SECURE_PUBLISHING` is unset or not `true` (Preview/local).
 
 ## Backend and data model
 
@@ -113,7 +115,7 @@ Challenge (`destination=challenge`) and Referee (`destination=referee`) read onl
 
 ## Known limitations
 
-- With `CONTENT_SECURE_PUBLISHING` off, any valid Supabase Auth user passes the admin check.
+- **Production** requires `app_metadata.content_admin === true` when `CONTENT_SECURE_PUBLISHING=true`. With the flag off (local/Preview default), any valid Supabase Auth user still passes the admin check.
 - `npm run lint` checks TypeScript/TSX with the Next.js and TypeScript rules. Existing typing, image and hook warnings remain visible; they are not a claim of full UI acceptance.
 - The anonymous RLS policy on `content_items` still allows direct Supabase reads of published library versions regardless of destination; the supported consumer path is `/api/v1`.
 - Saving edits to a published record returns its library version to draft, hiding it on every destination until republished. Releases are unchanged.
