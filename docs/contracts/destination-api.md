@@ -1,6 +1,6 @@
 # Destination API contract (v1)
 
-The read-only public contract between the Content Platform and its destination consumers. Implemented in `src/app/api/v1/content/route.ts`, `src/app/api/v1/content/[id]/route.ts` and `src/lib/content-releases.ts`; pinned by `tests/public-content-routes.test.ts`. Vercel reports current Production deployment `dpl_E5YSVqKb24YXFNQSHcTQAPjv1gn1` from `master` commit `e8827332` (READY). On 2026-10-16, the read-only Production verifier confirmed Challenge (29), Referee (2), the release destination field, and rejection of unscoped list access. The `823e919` response observation is historical (2026-10-15).
+The read-only public contract between the Content Platform and its destination consumers. Implemented in `src/app/api/v1/content/route.ts`, `src/app/api/v1/content/[id]/route.ts` and `src/lib/content-releases.ts`; pinned by `tests/public-content-routes.test.ts`. After PR #19 merged, Vercel reports current Production deployment `dpl_64m3GURiwCUz82bHrhvWqXSWduYQ` as READY from `master` commit `976bfd8c1230ac7a05ba61ea6ce3cc50009882cd`. At 2026-10-16 11:33:31 UTC, I reran the read-only Production health and destination verifier: health was HTTP 200, Challenge had 29 items, Referee 2, release destination checks passed, and the unscoped list returned HTTP 400. The earlier `823e919` response observation is historical (2026-10-15); the pre-merge `e8827332` deploy was current only before PR #19's merge.
 
 ## Destinations
 
