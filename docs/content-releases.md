@@ -14,6 +14,8 @@ A record is publicly visible on a destination only when **both** are true:
 1. The library version is published: the record passes the existing `published_content` rules (status `published`, a published revision snapshot, visibility `public` or `link_only`).
 2. It has an **active release** for that destination.
 
+**Public discovery policy:** both `public` and `link_only` records are returned by the unauthenticated destination list and detail APIs. `link_only` currently does not require a token and does not suppress the record from listing. Until an unlisted-link access design is implemented and verified, create active releases only for records approved for unrestricted public discovery.
+
 Publishing the library version does not publish the record anywhere. A record with no active release is not visible on either destination.
 
 ## Destinations

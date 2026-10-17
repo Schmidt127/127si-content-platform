@@ -4,7 +4,8 @@ The current implementation uses Supabase as its backend. Airtable appears only i
 
 ## Start here
 
-- [Current state](./current-state.md) — implementation, deployment evidence, known boundaries, and working-tree notes.
+- [Current state](./current-state.md) — implementation, deployment evidence, known boundaries, and the latest dated checkpoint.
+- [Public consumer readiness (2026-10-17)](./status/2026-10-17-public-consumer-readiness.md) — Content-side selection, visibility, media contract, and remaining consumer acceptance.
 - [Schema and migrations](./schema.md) — tables, view, relationships, statuses, RLS, and migration order.
 - [Supabase setup](./supabase.md) — environment variables, Auth, Storage, clients, and hosted-project setup.
 - [Admin navigation](./admin-navigation.md) — current routes, linked navigation, and the retained legacy route.

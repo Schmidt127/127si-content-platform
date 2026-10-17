@@ -1,6 +1,9 @@
 # Destination API contract (v1)
 
-The read-only public contract between the Content Platform and its destination consumers. Implemented in `src/app/api/v1/content/route.ts`, `src/app/api/v1/content/[id]/route.ts` and `src/lib/content-releases.ts`; pinned by `tests/public-content-routes.test.ts`. After PR #19 merged, Vercel reports current Production deployment `dpl_64m3GURiwCUz82bHrhvWqXSWduYQ` as READY from `master` commit `976bfd8c1230ac7a05ba61ea6ce3cc50009882cd`. At 2026-10-16 11:33:31 UTC, I reran the read-only Production health and destination verifier: health was HTTP 200, Challenge had 29 items, Referee 2, release destination checks passed, and the unscoped list returned HTTP 400. The earlier `823e919` response observation is historical (2026-10-15); the pre-merge `e8827332` deploy was current only before PR #19's merge.
+The read-only public contract between the Content Platform and its destination consumers. Implemented in `src/app/api/v1/content/route.ts`, `src/app/api/v1/content/[id]/route.ts` and `src/lib/content-releases.ts`; pinned by `tests/public-content-routes.test.ts`. As of October 17, 2026, GitHub `master` and the latest Vercel Production deployment are both at `a2c875e1528bde65f585da9e44f6de46390d4888`; deployment `dpl_AouA8LJuFbDx6GjrHchAG7XPDUTE` is READY. The latest recorded hosted HTTP check is October 16, 2026: health 200, Challenge 29, Referee 2, and unscoped list 400. The October 17 refresh checked deployment metadata only.
+
+**Visibility note:** public destination list and detail routes include records with visibility `public` **or** `link_only`. The latter is not access control or an unlisted-link guarantee. Only release records intended for unrestricted public discovery unless a separately designed and verified access mechanism is added. See [public consumer readiness](../status/2026-10-17-public-consumer-readiness.md).
+
 
 ## Destinations
 
