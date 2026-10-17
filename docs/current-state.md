@@ -1,5 +1,7 @@
 # Content Platform current state
 
+> **Post-reconcile checkpoint — October 17, 2026 (read-only verification):** `master` @ **`5cd41266ed71cb4f35eb4aceb266125c4575e2f6`**. Production Vercel **`dpl_FEJh2meUgfp8R7HybTYdfYwhVSdw`**, **READY**, SHA matches `master`. Supabase **`0011`** applied as **`20261016222718 content_items_destination_rls`**. `/api/health` 200; destination counts Challenge **29**, Referee **2**; anon RLS spot-check passed. Cross-repo table: Challenge repo [`127si-challenge-platform` `docs/status/2026-10-16-six-platform-post-reconcile.md`](https://github.com/Schmidt127/127si-challenge-platform/blob/main/docs/status/2026-10-16-six-platform-post-reconcile.md).
+
 This is the repository-level source of truth for the Content Platform. It separates what is **implemented** on this branch, what is **tested**, what is **merged** on GitHub, and what is **deployed** to Production. Those are not the same thing today; see [historical repository identity and Production divergence](#historical-repository-identity-and-production-divergence).
 
 Historical reconciliation: 2026-10-15 on branch `swarm/content-destination-reconcile` (based on `origin/master` `b7f3b48`). Production facts in the historical section below came from read-only SQL against Supabase `oqnnvmxjdersgcguhvsc` and read-only `GET` requests to `https://content.fairfieldbasketballclub.com` on 2026-10-15. Nothing hosted was changed.
@@ -29,11 +31,11 @@ Snapshot **2026-10-16** after migrations `0008`/`0009`; earlier 2026-10-15 facts
 
 | Item | State |
 | --- | --- |
-| Supabase migration history | `20261014111739 content_releases`, `20261014111743 backfill_published_revisions`, `20261016171123 atomic_publication`, `20261016171128 content_releases_api_write_grants`. Migrations `0001`–`0005` were applied outside the CLI ledger. |
+| Supabase migration history | `20261014111739 content_releases`, `20261014111743 backfill_published_revisions`, `20261016171123 atomic_publication`, `20261016171128 content_releases_api_write_grants`, `20261016193052 public_views_security_invoker`, `20261016222718 content_items_destination_rls`. Migrations `0001`–`0005` were applied outside the CLI ledger. |
 | `0008_atomic_publication.sql` | **Applied** (`20261016171123`). `public.set_content_status(uuid, text)` exists; **`EXECUTE` granted only to `service_role`**. `published_content` reads `media` and `challenge_ids` from the revision snapshot (not live `content_media`). |
 | `0009_content_releases_api_write_grants.sql` | **Applied** (`20261016171128`). Encodes API-role write revokes on `content_releases` (already matched Production before apply). |
 | `0010_public_views_security_invoker.sql` | **Applied** (owner; see Supabase migration history). Sets `security_invoker` on public read views. |
-| `0011_content_items_destination_rls.sql` | **Not applied** (repo-only until owner runs it). Tightens anon/authenticated `SELECT` on `content_items` to rows with an active destination release. |
+| `0011_content_items_destination_rls.sql` | **Applied** (`20261016222718 content_items_destination_rls`, owner apply ~2026-10-16 22:27 UTC). Anon/authenticated `SELECT` on `content_items` requires an active destination release. Verified read-only 2026-10-17 (see post-reconcile checkpoint below). |
 | Row counts (unchanged by 0008/0009) | `content_items` **63**, `content_revisions` **31**, `content_media` **2**, `published_content` **31**. |
 | Revision media snapshots | **31** revisions include a `media` key (was **0** before `0008` backfill). |
 | `content_releases` | 31 rows: 29 `challenge` + 2 `referee`, all `published`. |
@@ -74,7 +76,7 @@ Supabase is the application backend:
 | `0008_atomic_publication.sql` | `set_content_status` RPC, frozen media snapshots | Applied (`20261016171123`) |
 | `0009_content_releases_api_write_grants.sql` | API-role write revokes on `content_releases` | Applied (`20261016171128`) |
 | `0010_public_views_security_invoker.sql` | `security_invoker` on `published_content` and `published_destination_content` | Applied (Production) |
-| `0011_content_items_destination_rls.sql` | Destination-aware anon `SELECT` on `content_items` | **Pending owner apply** |
+| `0011_content_items_destination_rls.sql` | Destination-aware anon `SELECT` on `content_items` | **Applied** (`20261016222718`) |
 
 See [schema.md](./schema.md) and [supabase.md](./supabase.md).
 
@@ -120,7 +122,7 @@ Challenge (`destination=challenge`) and Referee (`destination=referee`) read onl
 ## Known limitations
 
 - **Production** requires `app_metadata.content_admin === true` when `CONTENT_SECURE_PUBLISHING=true`. With the flag off (local/Preview default), any valid Supabase Auth user still passes the admin check.
-- Until the owner applies `0011_content_items_destination_rls.sql`, Production still allows direct Supabase anon reads of any published library row on `content_items`, regardless of destination. The supported consumer path remains `/api/v1` (`published_destination_content`). After apply, anon reads on `content_items` require at least one active destination release (same window as `content_releases` RLS).
+- **Migration 0011 is applied on Production.** Direct Supabase anon reads on `content_items` require at least one active destination release (same window as `content_releases` RLS). The supported consumer path remains `/api/v1` (`published_destination_content`). Spot-check 2026-10-17: `naso-referee-article` (published, no active release) is **not** visible to `anon`; API counts remain Challenge **29** / Referee **2**.
 - Direct anon reads on `content_revisions` for published parents are unchanged; tightening that table is a separate follow-up if needed.
 - Saving edits to a published record returns its library version to draft, hiding it on every destination until republished. Releases are unchanged.
 - Admin state labels use the server clock; public visibility uses the database clock.
