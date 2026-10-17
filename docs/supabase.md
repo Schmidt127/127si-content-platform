@@ -68,9 +68,9 @@ Rollback (only after reverting the application deploy, since the new app require
 
 ## Destination-aware `content_items` RLS (0011)
 
-**Applied to Production (2026-10-16).** Supabase migration ledger: version **`20261016222718`**, name **`content_items_destination_rls`**, operator **`mschmidt@fairfield.k12.mt.us`**. Repository file: `supabase/migrations/0011_content_items_destination_rls.sql` (merged via PR #26).
+**Applied to Production Supabase `oqnnvmxjdersgcguhvsc` (2026-10-16 4:27 PM MDT / 22:27 UTC).** Supabase migration ledger: version **`20261016222718`**, name **`content_items_destination_rls`**, operator **`mschmidt@fairfield.k12.mt.us`**. Repository file: `supabase/migrations/0011_content_items_destination_rls.sql` (merged via PR #26).
 
-**Verification recorded 2026-10-17 (read-only):**
+**Verification recorded 2026-10-16 (read-only):**
 
 - Policy `published content with active release is readable` on `public.content_items`.
 - `/api/health` HTTP 200 (configuration, database, destinations, storage).
@@ -79,7 +79,12 @@ Rollback (only after reverting the application deploy, since the new app require
 
 Historical apply steps (for audit): run after `0010_public_views_security_invoker.sql`; idempotent SQL in migration file.
 
-Rollback (owner only): `drop policy if exists "published content with active release is readable" on public.content_items;` then recreate the legacy policy from `0001_content_platform.sql` if needed.
+Rollback (owner only):
+
+```sql
+drop policy if exists "published content with active release is readable" on public.content_items;
+create policy "published content is readable" on public.content_items for select using (status = 'published');
+```
 
 ## Security boundaries
 
