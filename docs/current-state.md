@@ -1,3 +1,5 @@
+# Content Platform current state
+
 > **Current checkpoint — October 17, 2026 (GitHub/Vercel metadata; no new Production HTTP probe):** GitHub default branch `master`; latest Content commit **`a2c875e1528bde65f585da9e44f6de46390d4888`** (PR #28). Latest Vercel Production deployment **`dpl_AouA8LJuFbDx6GjrHchAG7XPDUTE`**, **READY**, from `master` at the same SHA; alias includes `content.fairfieldbasketballclub.com`. The latest recorded Production API smoke is October 16, 2026: health **200**, Challenge **29**, Referee **2**, unscoped list **400**. Do not treat that dated smoke as a new October 17 HTTP check.
 >
 > **Consumer readiness boundary:** the Content API and admin release workflow are implemented here; the public Shout Out, Tutorial, and Readings pages, consumer media playback, and consumer Production origin settings live in Challenge and Referee. Set `CONTENT_API_BASE_URL` and media-origin allowlists in those consumer deployments, not in the Content project.
