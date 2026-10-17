@@ -1,15 +1,10 @@
-# Content Platform current state
-
-> **Post-reconcile checkpoint — October 16, 2026 (read-only verification):** `master` @ **`5cd41266ed71cb4f35eb4aceb266125c4575e2f6`**. Production Vercel **`dpl_FEJh2meUgfp8R7HybTYdfYwhVSdw`**, **READY**, SHA matches `master`. `/api/health` HTTP **200**; destination counts Challenge **29**, Referee **2**; anon RLS spot-check passed (published row without an active release not visible to `anon`). Cross-repo table: Challenge repo [`127si-challenge-platform` `docs/status/2026-10-16-six-platform-post-reconcile.md`](https://github.com/Schmidt127/127si-challenge-platform/blob/main/docs/status/2026-10-16-six-platform-post-reconcile.md).
+> **Current checkpoint — October 17, 2026 (GitHub/Vercel metadata; no new Production HTTP probe):** GitHub default branch `master`; latest Content commit **`a2c875e1528bde65f585da9e44f6de46390d4888`** (PR #28). Latest Vercel Production deployment **`dpl_AouA8LJuFbDx6GjrHchAG7XPDUTE`**, **READY**, from `master` at the same SHA; alias includes `content.fairfieldbasketballclub.com`. The latest recorded Production API smoke is October 16, 2026: health **200**, Challenge **29**, Referee **2**, unscoped list **400**. Do not treat that dated smoke as a new October 17 HTTP check.
 >
-> **Production migration `0011` — October 16, 2026:** Owner applied `0011_content_items_destination_rls.sql` to Content Production Supabase **`oqnnvmxjdersgcguhvsc`** on **October 16, 2026 at 4:27 PM MDT (22:27 UTC)** as version **`20261016222718`**. Public destination counts afterward: Challenge **29**, Referee **2**. Rollback (owner only):
+> **Consumer readiness boundary:** the Content API and admin release workflow are implemented here; the public Shout Out, Tutorial, and Readings pages, consumer media playback, and consumer Production origin settings live in Challenge and Referee. Set `CONTENT_API_BASE_URL` and media-origin allowlists in those consumer deployments, not in the Content project.
 >
-> ```sql
-> drop policy if exists "published content with active release is readable" on public.content_items;
-> create policy "published content is readable" on public.content_items for select using (status = 'published');
-> ```
+> **Public visibility caveat:** the API currently returns both `public` and `link_only` records to public destination list and detail requests. `link_only` does not restrict access. Until an unlisted-link access design exists, release only records intended for unrestricted public discovery. The `content-media` bucket also serves linked files through public URLs; consumers implement playback.
 >
-> **Test cleanup — October 16, 2026 (~6:27 PM MDT):** With owner approval, test item **'GARBAGE DELETE'** (`beb44e36-1550-4444-9667-641da0dc25f6`) and its one revision were deleted. Public destination counts unchanged (Challenge **29**, Referee **2**).
+> **Production migration 0011 and test cleanup — October 16, 2026:** Migration `0011_content_items_destination_rls.sql` was applied by the owner to Content Production Supabase **`oqnnvmxjdersgcguhvsc`** as version **`20261016222718`**. The temporary test item `GARBAGE DELETE` was removed with owner approval the same day; destination API counts were unchanged. Historical rollout details follow in the dated sections below.
 
 This is the repository-level source of truth for the Content Platform. It separates what is **implemented** on this branch, what is **tested**, what is **merged** on GitHub, and what is **deployed** to Production. Those are not the same thing today; see [historical repository identity and Production divergence](#historical-repository-identity-and-production-divergence).
 
@@ -122,7 +117,7 @@ The public contract is in [contracts/destination-api.md](./contracts/destination
 
 ## Consumers
 
-Challenge (`destination=challenge`) and Referee (`destination=referee`) read only through `/api/v1` and reject any item whose `release.destination` differs from their key. Neither connects to the Content database. Referee's client exists on Referee `main`; page wiring and origin configuration remain open there.
+Challenge (`destination=challenge`) and Referee (`destination=referee`) read only through `/api/v1` and reject any item whose `release.destination` differs from their key. Neither connects to the Content database. Consumer pages, playback components, and each app’s `CONTENT_API_BASE_URL` / media-origin settings are maintained in their respective repositories and deployments.
 
 ## Verification on this branch
 
