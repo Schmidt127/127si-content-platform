@@ -68,17 +68,23 @@ Rollback (only after reverting the application deploy, since the new app require
 
 ## Destination-aware `content_items` RLS (0011)
 
-**Not applied to Production by agents.** Owner-controlled. Run after `0010_public_views_security_invoker.sql` when ready.
+**Applied to Production Supabase `oqnnvmxjdersgcguhvsc` (2026-10-16 4:27 PM MDT / 22:27 UTC).** Supabase migration ledger: version **`20261016222718`**, name **`content_items_destination_rls`**, operator **`mschmidt@fairfield.k12.mt.us`**. Repository file: `supabase/migrations/0011_content_items_destination_rls.sql` (merged via PR #26).
 
-1. **Confirm the target.** Project `oqnnvmxjdersgcguhvsc` (Content Production).
-2. **Pre-check (read-only).** As role `anon`, `select count(*) from public.content_items where status = 'published';` may exceed the count of active destination releases. That gap is what this migration closes.
-3. **Apply.** Paste and run `supabase/migrations/0011_content_items_destination_rls.sql` once in the SQL editor (idempotent).
-4. **Verify (read-only).**
-   - `select policyname from pg_policies where tablename = 'content_items' and cmd = 'SELECT';` includes `published content with active release is readable`.
-   - As role `anon`, direct `select id from public.content_items` returns only rows with an active published release; `/api/v1` destination counts (Challenge / Referee) are unchanged.
-5. **Record** apply time in [current-state.md](./current-state.md).
+**Verification recorded 2026-10-16 (read-only):**
 
-Rollback: `drop policy if exists "published content with active release is readable" on public.content_items;` then recreate the legacy policy from `0001_content_platform.sql` if needed.
+- Policy `published content with active release is readable` on `public.content_items`.
+- `/api/health` HTTP 200 (configuration, database, destinations, storage).
+- `node scripts/verify-content-api-destinations.mjs https://content.fairfieldbasketballclub.com --expected-challenge=29 --expected-referee=2` — pass.
+- Anon role: **30** published rows visible via RLS; example without active release (`c4bf4d52-e442-480b-84c7-3a2d051a3a33` / `naso-referee-article`) → **0** rows.
+
+Historical apply steps (for audit): run after `0010_public_views_security_invoker.sql`; idempotent SQL in migration file.
+
+Rollback (owner only):
+
+```sql
+drop policy if exists "published content with active release is readable" on public.content_items;
+create policy "published content is readable" on public.content_items for select using (status = 'published');
+```
 
 ## Security boundaries
 

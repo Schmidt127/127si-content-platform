@@ -1,5 +1,16 @@
 # Content Platform current state
 
+> **Post-reconcile checkpoint — October 16, 2026 (read-only verification):** `master` @ **`5cd41266ed71cb4f35eb4aceb266125c4575e2f6`**. Production Vercel **`dpl_FEJh2meUgfp8R7HybTYdfYwhVSdw`**, **READY**, SHA matches `master`. `/api/health` HTTP **200**; destination counts Challenge **29**, Referee **2**; anon RLS spot-check passed (published row without an active release not visible to `anon`). Cross-repo table: Challenge repo [`127si-challenge-platform` `docs/status/2026-10-16-six-platform-post-reconcile.md`](https://github.com/Schmidt127/127si-challenge-platform/blob/main/docs/status/2026-10-16-six-platform-post-reconcile.md).
+>
+> **Production migration `0011` — October 16, 2026:** Owner applied `0011_content_items_destination_rls.sql` to Content Production Supabase **`oqnnvmxjdersgcguhvsc`** on **October 16, 2026 at 4:27 PM MDT (22:27 UTC)** as version **`20261016222718`**. Public destination counts afterward: Challenge **29**, Referee **2**. Rollback (owner only):
+>
+> ```sql
+> drop policy if exists "published content with active release is readable" on public.content_items;
+> create policy "published content is readable" on public.content_items for select using (status = 'published');
+> ```
+>
+> **Test cleanup — October 16, 2026 (~6:27 PM MDT):** With owner approval, test item **'GARBAGE DELETE'** (`beb44e36-1550-4444-9667-641da0dc25f6`) and its one revision were deleted. Public destination counts unchanged (Challenge **29**, Referee **2**).
+
 This is the repository-level source of truth for the Content Platform. It separates what is **implemented** on this branch, what is **tested**, what is **merged** on GitHub, and what is **deployed** to Production. Those are not the same thing today; see [historical repository identity and Production divergence](#historical-repository-identity-and-production-divergence).
 
 Historical reconciliation: 2026-10-15 on branch `swarm/content-destination-reconcile` (based on `origin/master` `b7f3b48`). Production facts in the historical section below came from read-only SQL against Supabase `oqnnvmxjdersgcguhvsc` and read-only `GET` requests to `https://content.fairfieldbasketballclub.com` on 2026-10-15. Nothing hosted was changed.
@@ -29,17 +40,17 @@ Snapshot **2026-10-16** after migrations `0008`/`0009`; earlier 2026-10-15 facts
 
 | Item | State |
 | --- | --- |
-| Supabase migration history | `20261014111739 content_releases`, `20261014111743 backfill_published_revisions`, `20261016171123 atomic_publication`, `20261016171128 content_releases_api_write_grants`. Migrations `0001`–`0005` were applied outside the CLI ledger. |
+| Supabase migration history | `20261014111739 content_releases`, `20261014111743 backfill_published_revisions`, `20261016171123 atomic_publication`, `20261016171128 content_releases_api_write_grants`, `20261016193052 public_views_security_invoker`, `20261016222718 content_items_destination_rls`. Migrations `0001`–`0005` were applied outside the CLI ledger. |
 | `0008_atomic_publication.sql` | **Applied** (`20261016171123`). `public.set_content_status(uuid, text)` exists; **`EXECUTE` granted only to `service_role`**. `published_content` reads `media` and `challenge_ids` from the revision snapshot (not live `content_media`). |
 | `0009_content_releases_api_write_grants.sql` | **Applied** (`20261016171128`). Encodes API-role write revokes on `content_releases` (already matched Production before apply). |
 | `0010_public_views_security_invoker.sql` | **Applied** (owner; see Supabase migration history). Sets `security_invoker` on public read views. |
-| `0011_content_items_destination_rls.sql` | **Not applied** (repo-only until owner runs it). Tightens anon/authenticated `SELECT` on `content_items` to rows with an active destination release. |
+| `0011_content_items_destination_rls.sql` | **Applied** (`20261016222718 content_items_destination_rls`, owner apply **2026-10-16 4:27 PM MDT / 22:27 UTC** on `oqnnvmxjdersgcguhvsc`). Anon/authenticated `SELECT` on `content_items` requires an active destination release. Verified read-only 2026-10-16 (see post-reconcile checkpoint above). |
 | Row counts (unchanged by 0008/0009) | `content_items` **63**, `content_revisions` **31**, `content_media` **2**, `published_content` **31**. |
 | Revision media snapshots | **31** revisions include a `media` key (was **0** before `0008` backfill). |
 | `content_releases` | 31 rows: 29 `challenge` + 2 `referee`, all `published`. |
 | `content_items` (status) | 31 `published`, 1 `draft`, 31 `removed`. Every published item has a published revision (`0007` effective). |
 | Read models | `published_content` 31 rows; `published_destination_content` 29 `challenge` + 2 `referee`. Public API: Challenge **29**, Referee **2**. |
-| Secure publishing (2026-10-16 ~11:20 AM MT) | Vercel Production **`CONTENT_SECURE_PUBLISHING=true`** (deploy `dpl_HWJdUgM3ei5ihHPNpJ8gF5P9z3Qk`, `master` `56c5d97`). Admin gate: **`content_admin`** on `schmidt@fairfieldbasketballclub.com` and `mschmidt@fairfield.k12.mt.us`. Publish/unpublish uses **`set_content_status`**. Owner publish smoke (rollout **3.4**) **passed** 2026-10-16 ~1:06 PM MT ('GARBAGE DELETE', `beb44e36-…`, `status=published`; owner told to unpublish). |
+| Secure publishing (2026-10-16 ~11:20 AM MT) | Vercel Production **`CONTENT_SECURE_PUBLISHING=true`** (deploy `dpl_HWJdUgM3ei5ihHPNpJ8gF5P9z3Qk`, `master` `56c5d97`). Admin gate: **`content_admin`** on `schmidt@fairfieldbasketballclub.com` and `mschmidt@fairfield.k12.mt.us`. Publish/unpublish uses **`set_content_status`**. Owner publish smoke (rollout **3.4**) **passed** 2026-10-16 ~1:06 PM MT ('GARBAGE DELETE', `beb44e36-…`, `status=published`); item and revision **deleted** ~6:27 PM MDT same day with owner approval (see checkpoint above). |
 | Storage | Bucket `content-media`. |
 
 ### Code compatibility with the live schema
@@ -74,7 +85,7 @@ Supabase is the application backend:
 | `0008_atomic_publication.sql` | `set_content_status` RPC, frozen media snapshots | Applied (`20261016171123`) |
 | `0009_content_releases_api_write_grants.sql` | API-role write revokes on `content_releases` | Applied (`20261016171128`) |
 | `0010_public_views_security_invoker.sql` | `security_invoker` on `published_content` and `published_destination_content` | Applied (Production) |
-| `0011_content_items_destination_rls.sql` | Destination-aware anon `SELECT` on `content_items` | **Pending owner apply** |
+| `0011_content_items_destination_rls.sql` | Destination-aware anon `SELECT` on `content_items` | **Applied** (`20261016222718`) |
 
 See [schema.md](./schema.md) and [supabase.md](./supabase.md).
 
@@ -120,7 +131,7 @@ Challenge (`destination=challenge`) and Referee (`destination=referee`) read onl
 ## Known limitations
 
 - **Production** requires `app_metadata.content_admin === true` when `CONTENT_SECURE_PUBLISHING=true`. With the flag off (local/Preview default), any valid Supabase Auth user still passes the admin check.
-- Until the owner applies `0011_content_items_destination_rls.sql`, Production still allows direct Supabase anon reads of any published library row on `content_items`, regardless of destination. The supported consumer path remains `/api/v1` (`published_destination_content`). After apply, anon reads on `content_items` require at least one active destination release (same window as `content_releases` RLS).
+- **Migration 0011 is applied on Production.** Direct Supabase anon reads on `content_items` require at least one active destination release (same window as `content_releases` RLS). The supported consumer path remains `/api/v1` (`published_destination_content`). Spot-check 2026-10-16: `naso-referee-article` (published, no active release) is **not** visible to `anon`; API counts remain Challenge **29** / Referee **2**.
 - Direct anon reads on `content_revisions` for published parents are unchanged; tightening that table is a separate follow-up if needed.
 - Saving edits to a published record returns its library version to draft, hiding it on every destination until republished. Releases are unchanged.
 - Admin state labels use the server clock; public visibility uses the database clock.
